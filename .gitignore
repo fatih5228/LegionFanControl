@@ -1,0 +1,15 @@
+# Calisma zamaninda uretilen dosyalar
+ayarlar.ini
+*.sys
+
+# Derleme ciktilari
+*.exe
+
+# Paket ciktilari (GitHub Releases'a yuklenir)
+dist/
+
+# Yedek DLL kopyalari (kullanilanlar kok dizinde)
+libs/
+
+# Gecici test ciktilari
+shot_*.png

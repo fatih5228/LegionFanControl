@@ -1,0 +1,86 @@
+LEGION Y520 — FAN KONTROL
+==========================
+
+Lenovo Legion Y520-15IKBN (80WK) için sistem tepsili fan kontrol
+aracıdır. Yönetici yetkisi ister (WMI ve donanım sensörleri için).
+Masaüstündeki "Legion Fan Kontrol" kısayolu ile açılabilir.
+
+AÇILIŞ
+------
+- LegionFanControl.exe'ye çift tıklayın. UAC (yönetici) sorusuna "Evet" deyin.
+- Pencere açılır ve sistem tepsisine (saat yanı) kırmızı fan simgesi yerleşir.
+
+PENCERE
+-------
+- Pencerenin standart Windows başlık çubuğu yoktur; en üstteki koyu
+  şerit özel başlık çubuğudur. Şeritten tutup sürükleyerek pencereyi
+  taşıyabilirsiniz.
+- Şeridin sağındaki "—" düğmesi simge durumuna küçültür, "✕" düğmesi
+  pencereyi gizleyip tepsiye küçültür (uygulama kapanmaz).
+- Pencere sağ alt köşesindeki tutamaçtan boyutlandırılabilir.
+
+SAYFALAR (sol menü)
+-------------------
+FAN KONTROL
+  - EXTREME COOLING düğmesi: tıklayınca fanlar tam hıza çıkar
+    (AÇIK = kırmızı), tekrar tıklayınca normal moda döner (KAPALI = gri).
+  - OTOMATİK MOD: açıkken (kırmızı) fanlar sıcaklığa göre yönetilir.
+    Kaydırıcı ile eşik sıcaklığı ayarlanır (50–95 °C, varsayılan 70 °C):
+    CPU bu sıcaklığa ulaşınca Extreme Cooling kendiliğinden açılır,
+    eşiğin 5 °C altına inince kapanır. Otomatik mod açıkken manuel
+    Extreme Cooling düğmesi devre dışıdır.
+    Otomatik mod ayarları exe'nin yanındaki ayarlar.ini dosyasında
+    saklanır ve yeniden açılışta hatırlanır.
+  - FAN 1 / FAN 2: anlık RPM değerleri ve doluluk çubuğu
+    (2 saniyede bir güncellenir).
+  - Sıcaklıklar: CPU ve GPU, LibreHardwareMonitor sensörlerinden okunur;
+    "Sistem" değeri BIOS'un IR sensöründen gelir.
+
+DONANIM
+  - İşlemci, GPU'lar, model, RAM ve BIOS sürümü bilgileri.
+
+SİSTEM
+  - Win Tuşu Kilidi: açıkken (KİLİTLİ, kırmızı) Windows tuşu devre dışı
+    kalır — oyun modu.
+  - Touchpad Kilidi: açıkken touchpad devre dışı kalır.
+  - Windows ile Başlat: açıkken bilgisayar her açıldığında uygulama
+    yönetici yetkisiyle kendiliğinden başlar (Görev Zamanlayıcı'ya
+    "LegionFanControl" görevi eklenir) ve tepside çalışır.
+  - Dil / Language: arayüz dili Türkçe veya İngilizce seçilebilir;
+    değişiklik anında uygulanır ve ayarlar.ini'de saklanır. İlk
+    açılışta Windows'un dili otomatik algılanır.
+  - Not: Bu BIOS'ta fan toz temizleme özelliği yoktur.
+
+HAKKINDA
+  - Uygulama sürümü, geliştirici bilgisi ve GitHub deposu bağlantısı
+    (https://github.com/fatih5228/LegionFanControl). Bağlantıya
+    tıklayınca depo tarayıcıda açılır.
+
+SİSTEM TEPSİSİ
+--------------
+- Simge Legion "Y" logosudur: Extreme Cooling AÇIKken KIRMIZI,
+  KAPALIyken GRİ görünür.
+- Simgeye SAĞ tıklayın:
+    * Göster                    -> pencereyi açar
+    * Extreme Cooling Aç/Kapat  -> mevcut duruma göre değiştirir
+    * Çıkış                     -> uygulamayı tamamen kapatır
+- Simgeye ÇİFT tıklamak da pencereyi açar.
+
+KAPATMA
+-------
+- Başlık çubuğundaki ✕ düğmesi uygulamayı KAPATMAZ; pencereyi gizleyip
+  tepside çalışmaya devam ettirir.
+- Gerçek çıkış için tepsi menüsünden "Çıkış"ı kullanın.
+- Çıkışta fan/kilit ayarları DEĞİŞTİRİLMEZ; bıraktığınız gibi kalır.
+
+NOTLAR
+------
+- Extreme Cooling ayarı kalıcıdır; uygulama kapansa bile fanlar
+  son ayarlanan modda çalışmaya devam eder.
+- CPU/GPU sıcaklıkları için LibreHardwareMonitorLib.dll, HidSharp.dll
+  ve System.Management.dll dosyalarının exe ile aynı klasörde olması
+  gerekir; silerseniz sıcaklıklar "—" görünür ama fan kontrolü
+  çalışmaya devam eder.
+- Bazı antivirüs/Defender ayarları donanım sürücüsünü engellerse
+  CPU/GPU sıcaklığı okunamaz; bu durumda uygulama normal çalışır,
+  sadece sıcaklık satırları boş görünür.
