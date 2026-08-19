@@ -1,9 +1,9 @@
 ; Legion Y520 Fan Kontrol — Inno Setup kurulum betigi
 ; Derlemek icin: ISCC.exe kurulum.iss   (Inno Setup 6 gereklidir)
-; Cikti: dist\LegionFanControl-Setup-v2.0.exe
+; Cikti: dist\LegionFanControl-Setup-v2.1.exe
 
 #define MyAppName "Legion Y520 Fan Kontrol"
-#define MyAppVersion "2.0"
+#define MyAppVersion "2.1"
 #define MyAppPublisher "fatih5228"
 #define MyAppURL "https://github.com/fatih5228/LegionFanControl"
 #define MyAppExeName "LegionFanControl.exe"
@@ -20,7 +20,7 @@ DefaultDirName={autopf}\LegionFanControl
 DefaultGroupName={#MyAppName}
 PrivilegesRequired=admin
 OutputDir=dist
-OutputBaseFilename=LegionFanControl-Setup-v2.0
+OutputBaseFilename=LegionFanControl-Setup-v2.1
 SetupIconFile=app.ico
 UninstallDisplayIcon={app}\app.ico
 Compression=lzma2
@@ -53,7 +53,7 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilen
 
 [Run]
 ; "Windows ile başlat" secildiyse Görev Zamanlayici'ya gorev ekle
-Filename: "schtasks.exe"; Parameters: "/Create /TN ""LegionFanControl"" /TR """"""""{app}\{#MyAppExeName}"""""""" /SC ONLOGON /RL HIGHEST /F"; Flags: runhidden; Tasks: startup
+Filename: "schtasks.exe"; Parameters: "/Create /TN ""LegionFanControl"" /TR ""\""{app}\{#MyAppExeName}\"" --tray"" /SC ONLOGON /RL HIGHEST /F"; Flags: runhidden; Tasks: startup
 Filename: "{app}\{#MyAppExeName}"; Description: "Uygulamayı şimdi çalıştır"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]

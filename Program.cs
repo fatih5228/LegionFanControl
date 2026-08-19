@@ -5,6 +5,8 @@ using System.IO;
 using IOPath = System.IO.Path;
 using System.Linq;
 using System.Management;
+using System.Net;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -348,12 +350,20 @@ namespace LegionFanControl
         private string _hwError;
         private readonly LhmMonitor _lhm = new LhmMonitor();
 
+        private readonly bool _startedInTray;
         private Forms.NotifyIcon _tray;
+        private string _latestReleaseUrl;
+        private TextBlock _updateStatusText, _updateDownloadTb;
+        private System.Windows.Documents.Run _updateDownloadRun;
         private Forms.ToolStripMenuItem _trayToggleItem, _trayShowItem, _trayExitItem;
         private Drawing.Icon _iconOn, _iconOff;
 
         public MainWindow()
         {
+            _startedInTray = Environment.GetCommandLineArgs().Skip(1)
+                .Any(a => string.Equals(a, "--tray", StringComparison.OrdinalIgnoreCase)
+                       || string.Equals(a, "-tray", StringComparison.OrdinalIgnoreCase));
+
             Title = Lang.T("app.title");
             Width = 840; Height = 670;
             WindowStyle = WindowStyle.None;
@@ -381,6 +391,8 @@ namespace LegionFanControl
             SelectPage(0);
             LoadHardwareInfo();
             RefreshSysStates();
+            EnsureStartupTaskTrayArg();
+            CheckForUpdates(false);
 
             _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
             _timer.Tick += (s, e) => Poll();
@@ -863,7 +875,7 @@ namespace LegionFanControl
             });
             footerStack.Children.Add(new TextBlock
             {
-                Text = "v2.0 • .NET Framework",
+                Text = "v" + CurrentVersion + " • .NET Framework",
                 Foreground = TextMutedBrush,
                 FontSize = 9,
                 Margin = new Thickness(0, 2, 0, 0)
@@ -1744,30 +1756,47 @@ namespace LegionFanControl
         {
             try
             {
-                string exe = typeof(MainWindow).Assembly.Location;
-                string args = on
-                    ? "/Create /TN \"" + StartupTaskName + "\" /TR \"\\\"" + exe + "\\\"\" /SC ONLOGON /RL HIGHEST /F"
-                    : "/Delete /TN \"" + StartupTaskName + "\" /F";
-                var p = Process.Start(new ProcessStartInfo
-                {
-                    FileName = "schtasks.exe",
-                    Arguments = args,
-                    CreateNoWindow = true,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
-                });
-                if (p != null)
-                {
-                    p.WaitForExit();
-                    if (p.ExitCode != 0) throw new Exception("schtasks hata kodu: " + p.ExitCode);
-                }
+                ApplyStartupTask(on);
                 SetStatus(on ? Lang.T("startup.on") : Lang.T("startup.off"), false);
             }
             catch (Exception ex)
             {
                 _startupSwitch.SetCheckedQuietly(IsStartupEnabled());
                 SetStatus(Lang.F("startup.fail", ex.Message), true);
+            }
+        }
+
+        // Baslangic gorevi aciksa ve uygulama tray'den baslatilmadiysa,
+        // gorevi --tray argumaniyla yeniden kaydeder (eski kayitlari gunceller).
+        private void EnsureStartupTaskTrayArg()
+        {
+            if (_startedInTray) return;
+            try
+            {
+                if (IsStartupEnabled()) ApplyStartupTask(true);
+            }
+            catch { }
+        }
+
+        private static void ApplyStartupTask(bool on)
+        {
+            string exe = typeof(MainWindow).Assembly.Location;
+            string args = on
+                ? "/Create /TN \"" + StartupTaskName + "\" /TR \"\\\"" + exe + "\\\" --tray\" /SC ONLOGON /RL HIGHEST /F"
+                : "/Delete /TN \"" + StartupTaskName + "\" /F";
+            var p = Process.Start(new ProcessStartInfo
+            {
+                FileName = "schtasks.exe",
+                Arguments = args,
+                CreateNoWindow = true,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            });
+            if (p != null)
+            {
+                p.WaitForExit();
+                if (p.ExitCode != 0) throw new Exception("schtasks hata kodu: " + p.ExitCode);
             }
         }
 
@@ -1897,6 +1926,9 @@ namespace LegionFanControl
 
         // ---------------- 4. Sayfa: HAKKINDA ----------------
         private const string GitHubUrl = "https://github.com/fatih5228/LegionFanControl";
+        public const string CurrentVersion = "2.1";
+        private const string GitHubLatestReleasePage = GitHubUrl + "/releases/latest";
+        private const string GitHubApiLatestRelease = "https://api.github.com/repos/fatih5228/LegionFanControl/releases/latest";
 
         private Grid BuildAboutPage()
         {
@@ -2066,6 +2098,63 @@ namespace LegionFanControl
             Grid.SetColumn(linkStack, 1);
             linkGrid.Children.Add(linkStack);
             sp.Children.Add(MakeCard(linkGrid));
+
+            // Guncelleme Karti
+            var updStack = new StackPanel();
+            updStack.Children.Add(new TextBlock
+            {
+                Text = Lang.T("update.title"),
+                Foreground = TextSecondary,
+                FontSize = 11,
+                FontWeight = FontWeights.Bold
+            });
+            _updateStatusText = new TextBlock
+            {
+                Text = Lang.F("update.current", CurrentVersion),
+                Foreground = TextPrimary,
+                FontSize = 13,
+                FontWeight = FontWeights.SemiBold,
+                Margin = new Thickness(0, 4, 0, 0)
+            };
+            updStack.Children.Add(_updateStatusText);
+
+            var checkTb = new TextBlock { Margin = new Thickness(0, 6, 0, 0) };
+            var checkLink = new System.Windows.Documents.Hyperlink(
+                new System.Windows.Documents.Run(Lang.T("update.check")))
+            {
+                Foreground = CyanBrush,
+                FontSize = 12,
+                TextDecorations = null,
+                Cursor = Cursors.Hand
+            };
+            checkLink.Click += (s, e) => CheckForUpdates(true);
+            checkTb.Inlines.Add(checkLink);
+            updStack.Children.Add(checkTb);
+
+            _updateDownloadTb = new TextBlock
+            {
+                Margin = new Thickness(0, 4, 0, 0),
+                Visibility = Visibility.Collapsed
+            };
+            _updateDownloadRun = new System.Windows.Documents.Run();
+            var dlLink = new System.Windows.Documents.Hyperlink(_updateDownloadRun)
+            {
+                Foreground = CyanBrush,
+                FontSize = 12,
+                FontWeight = FontWeights.SemiBold,
+                TextDecorations = null,
+                Cursor = Cursors.Hand
+            };
+            dlLink.Click += (s, e) =>
+            {
+                if (_latestReleaseUrl != null)
+                {
+                    try { Process.Start(_latestReleaseUrl); } catch { }
+                }
+            };
+            _updateDownloadTb.Inlines.Add(dlLink);
+            updStack.Children.Add(_updateDownloadTb);
+            sp.Children.Add(MakeCard(updStack));
 
             page.Children.Add(sp);
             return page;
@@ -2324,6 +2413,87 @@ namespace LegionFanControl
             _statusDot.Fill = isError ? RedBrush : GreenBrush;
         }
 
+        // ---------------- Guncelleme Kontrolu ----------------
+        private void CheckForUpdates(bool manual)
+        {
+            if (manual && _updateStatusText != null)
+                _updateStatusText.Text = Lang.T("update.checking");
+
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                string tag = null;
+                string pageUrl = GitHubLatestReleasePage;
+                bool failed = false;
+                try
+                {
+                    ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
+                    var req = (HttpWebRequest)WebRequest.Create(GitHubApiLatestRelease);
+                    req.UserAgent = "LegionFanControl/" + CurrentVersion;
+                    req.Timeout = 8000;
+                    using (var resp = req.GetResponse())
+                    using (var sr = new StreamReader(resp.GetResponseStream()))
+                    {
+                        string json = sr.ReadToEnd();
+                        var mt = Regex.Match(json, "\"tag_name\"\\s*:\\s*\"([^\"]+)\"");
+                        if (mt.Success) tag = mt.Groups[1].Value;
+                        var mu = Regex.Match(json, "\"html_url\"\\s*:\\s*\"([^\"]+)\"");
+                        if (mu.Success) pageUrl = mu.Groups[1].Value;
+                    }
+                    if (tag == null) failed = true;
+                }
+                catch { failed = true; }
+
+                string resultTag = tag, resultUrl = pageUrl;
+                Dispatcher.BeginInvoke(new Action(() => OnUpdateCheckDone(resultTag, resultUrl, failed, manual)));
+            });
+        }
+
+        private void OnUpdateCheckDone(string tag, string pageUrl, bool failed, bool manual)
+        {
+            if (failed)
+            {
+                if (manual && _updateStatusText != null)
+                    _updateStatusText.Text = Lang.T("update.fail");
+                return;
+            }
+
+            if (IsNewerVersion(tag))
+            {
+                _latestReleaseUrl = pageUrl;
+                if (_updateStatusText != null)
+                    _updateStatusText.Text = Lang.F("update.available", tag);
+                if (_updateDownloadTb != null && _updateDownloadRun != null)
+                {
+                    _updateDownloadRun.Text = Lang.F("update.download", tag);
+                    _updateDownloadTb.Visibility = Visibility.Visible;
+                }
+                if (_tray != null)
+                {
+                    try
+                    {
+                        _tray.ShowBalloonTip(6000, Lang.T("update.balloon.title"),
+                            Lang.F("update.available", tag), Forms.ToolTipIcon.Info);
+                    }
+                    catch { }
+                }
+            }
+            else if (manual && _updateStatusText != null)
+            {
+                _updateStatusText.Text = Lang.F("update.latest", CurrentVersion);
+            }
+        }
+
+        private static bool IsNewerVersion(string tag)
+        {
+            try
+            {
+                var m = Regex.Match(tag ?? "", @"\d+(\.\d+)*");
+                if (!m.Success) return false;
+                return new Version(m.Value) > new Version(CurrentVersion);
+            }
+            catch { return false; }
+        }
+
         // ---------------- Sistem Tepsisi ----------------
         private void BuildTray()
         {
@@ -2341,6 +2511,13 @@ namespace LegionFanControl
             _tray.Text = Lang.T("tray.tip");
             _tray.Visible = true;
             _tray.DoubleClick += (s, e) => ShowWindow();
+            _tray.BalloonTipClicked += (s, e) =>
+            {
+                if (_latestReleaseUrl != null)
+                {
+                    try { Process.Start(_latestReleaseUrl); } catch { }
+                }
+            };
 
             var menu = new Forms.ContextMenuStrip();
             _trayShowItem = new Forms.ToolStripMenuItem(Lang.T("tray.show"));
@@ -2372,6 +2549,12 @@ namespace LegionFanControl
             Focus();
         }
 
+        // Ikinci bir instance baslatildiginda mevcut pencereyi one getirir.
+        public void RequestShow()
+        {
+            ShowWindow();
+        }
+
         private void RealExit()
         {
             _realExit = true;
@@ -2382,6 +2565,7 @@ namespace LegionFanControl
     public static class Program
     {
         private static System.Threading.Mutex _singleInstance;
+        private static System.Threading.EventWaitHandle _showEvent;
 
         [STAThread]
         public static void Main(string[] args)
@@ -2420,14 +2604,41 @@ namespace LegionFanControl
 
             bool createdNew;
             _singleInstance = new System.Threading.Mutex(true, "LegionFanControl_SingleInstance", out createdNew);
-            if (!createdNew) return;
+            if (!createdNew)
+            {
+                // Zaten calisiyor: mevcut instance'in penceresini one getir.
+                try
+                {
+                    System.Threading.EventWaitHandle.OpenExisting("LegionFanControl_ShowEvent").Set();
+                }
+                catch { }
+                return;
+            }
+            _showEvent = new System.Threading.EventWaitHandle(false,
+                System.Threading.EventResetMode.AutoReset, "LegionFanControl_ShowEvent");
+
+            bool startInTray = args != null && args.Any(a =>
+                string.Equals(a, "--tray", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(a, "-tray", StringComparison.OrdinalIgnoreCase));
 
             var app = new Application();
             app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
             var win = new MainWindow();
             app.MainWindow = win;
             win.Closed += (s, e) => app.Shutdown();
-            win.Show();
+            if (!startInTray) win.Show();
+
+            var showThread = new System.Threading.Thread(() =>
+            {
+                while (true)
+                {
+                    _showEvent.WaitOne();
+                    try { win.Dispatcher.BeginInvoke(new Action(win.RequestShow)); }
+                    catch { break; }
+                }
+            }) { IsBackground = true };
+            showThread.Start();
+
             app.Run();
         }
     }
