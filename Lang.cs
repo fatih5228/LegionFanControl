@@ -99,7 +99,7 @@ namespace LegionFanControl
             { "startup.fail",       "Başlangıç ayarı değiştirilemedi: {0}" },
 
             { "about.title",        "HAKKINDA" },
-            { "about.version",      "Sürüm 2.2 • .NET Framework (WPF)" },
+            { "about.version",      "Sürüm 2.3 • .NET Framework (WPF)" },
             { "about.desc",         "Lenovo Legion Y520 için Extreme Cooling, otomatik fan kontrolü ve oyun araçları." },
             { "about.dev",          "GELİŞTİRİCİ" },
             { "about.gh",           "KAYNAK KOD & GÜNCELLEMELER" },
@@ -112,6 +112,7 @@ namespace LegionFanControl
             { "update.latest",      "En yeni sürümü kullanıyorsunuz (v{0})" },
             { "update.available",   "Yeni sürüm mevcut: {0}" },
             { "update.download",    "{0} sürümünü indir" },
+            { "update.get",         "İndir" },
             { "update.fail",        "Güncelleme denetimi başarısız — internet bağlantısını kontrol edin" },
             { "update.balloon.title", "Güncelleme Mevcut" },
 
@@ -191,7 +192,7 @@ namespace LegionFanControl
             { "startup.fail",       "Could not change startup setting: {0}" },
 
             { "about.title",        "ABOUT" },
-            { "about.version",      "Version 2.2 • .NET Framework (WPF)" },
+            { "about.version",      "Version 2.3 • .NET Framework (WPF)" },
             { "about.desc",         "Extreme Cooling, automatic fan control and gaming tools for Lenovo Legion Y520." },
             { "about.dev",          "DEVELOPER" },
             { "about.gh",           "SOURCE CODE & UPDATES" },
@@ -204,6 +205,7 @@ namespace LegionFanControl
             { "update.latest",      "You are running the latest version (v{0})" },
             { "update.available",   "New version available: {0}" },
             { "update.download",    "Download {0}" },
+            { "update.get",         "Download" },
             { "update.fail",        "Update check failed — check your internet connection" },
             { "update.balloon.title", "Update Available" },
 

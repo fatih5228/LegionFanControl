@@ -353,8 +353,11 @@ namespace LegionFanControl
         private readonly bool _startedInTray;
         private Forms.NotifyIcon _tray;
         private string _latestReleaseUrl;
+        private string _updateTag;
+        private int _updateRetries;
+        private Border _updateBanner;
         private TextBlock _updateStatusText, _updateDownloadTb;
-        private System.Windows.Documents.Run _updateDownloadRun;
+        private System.Windows.Documents.Run _updateDownloadRun, _updateBannerRun;
         private Forms.ToolStripMenuItem _trayToggleItem, _trayShowItem, _trayExitItem;
         private Drawing.Icon _iconOn, _iconOff;
 
@@ -561,12 +564,75 @@ namespace LegionFanControl
 
             var right = new Grid();
             Grid.SetColumn(right, 1);
+            right.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             right.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             right.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+            // Guncelleme Uyari Bandi (yeni surum bulununca gorunur)
+            _updateBanner = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(0x26, 0xE2, 0x23, 0x1A)),
+                BorderBrush = PanelEdgeBrush,
+                BorderThickness = new Thickness(0, 0, 0, 1),
+                Padding = new Thickness(16, 6, 10, 6),
+                Visibility = Visibility.Collapsed
+            };
+            var bannerGrid = new Grid();
+            bannerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            bannerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            var bannerTb = new TextBlock { FontSize = 11, VerticalAlignment = VerticalAlignment.Center };
+            _updateBannerRun = new System.Windows.Documents.Run { Foreground = TextPrimary };
+            bannerTb.Inlines.Add(_updateBannerRun);
+            bannerTb.Inlines.Add(new System.Windows.Documents.Run("   ") { Foreground = TextMutedBrush });
+            var bannerLink = new System.Windows.Documents.Hyperlink(
+                new System.Windows.Documents.Run(Lang.T("update.get")))
+            {
+                Foreground = Brushes.White,
+                FontWeight = FontWeights.SemiBold,
+                TextDecorations = null,
+                Cursor = Cursors.Hand
+            };
+            bannerLink.Click += (s, e) =>
+            {
+                if (_latestReleaseUrl != null)
+                {
+                    try { Process.Start(_latestReleaseUrl); } catch { }
+                }
+            };
+            bannerTb.Inlines.Add(bannerLink);
+            bannerGrid.Children.Add(bannerTb);
+            var dismissTxt = new TextBlock
+            {
+                Text = "✕",
+                Foreground = TextMutedBrush,
+                FontSize = 10,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            var dismiss = new Border
+            {
+                Width = 26,
+                Background = Brushes.Transparent,
+                Cursor = Cursors.Hand,
+                Child = dismissTxt
+            };
+            dismiss.MouseEnter += (s, e) => { dismiss.Background = SelBrush; dismissTxt.Foreground = TextPrimary; };
+            dismiss.MouseLeave += (s, e) => { dismiss.Background = Brushes.Transparent; dismissTxt.Foreground = TextMutedBrush; };
+            dismiss.MouseLeftButtonUp += (s, e) =>
+            {
+                e.Handled = true;
+                _updateBanner.Visibility = Visibility.Collapsed;
+            };
+            Grid.SetColumn(dismiss, 1);
+            bannerGrid.Children.Add(dismiss);
+            _updateBanner.Child = bannerGrid;
+            Grid.SetRow(_updateBanner, 0);
+            right.Children.Add(_updateBanner);
 
             var contentHost = new Grid { Margin = new Thickness(20, 12, 20, 6) };
             _pages = new Grid[] { BuildFanPage(), BuildHardwarePage(), BuildSystemPage(), BuildAboutPage() };
             foreach (var p in _pages) contentHost.Children.Add(p);
+            Grid.SetRow(contentHost, 1);
             right.Children.Add(contentHost);
 
             // Alt Durum Cubugu (Status Bar)
@@ -599,7 +665,7 @@ namespace LegionFanControl
             statusStack.Children.Add(_statusDot);
             statusStack.Children.Add(_statusText);
             statusBar.Child = statusStack;
-            Grid.SetRow(statusBar, 1);
+            Grid.SetRow(statusBar, 2);
             right.Children.Add(statusBar);
 
             root.Children.Add(right);
@@ -1930,7 +1996,9 @@ namespace LegionFanControl
         private void UpdateTrayLanguage()
         {
             if (_tray == null) return;
-            _tray.Text = Lang.T("tray.tip");
+            string tip = Lang.T("tray.tip");
+            if (_updateTag != null) tip += " — " + Lang.F("update.available", _updateTag);
+            _tray.Text = tip.Length > 63 ? tip.Substring(0, 63) : tip;
             if (_trayShowItem != null) _trayShowItem.Text = Lang.T("tray.show");
             if (_trayToggleItem != null)
                 _trayToggleItem.Text = (_extremeSwitch != null && _extremeSwitch.IsChecked)
@@ -1940,7 +2008,7 @@ namespace LegionFanControl
 
         // ---------------- 4. Sayfa: HAKKINDA ----------------
         private const string GitHubUrl = "https://github.com/fatih5228/LegionFanControl";
-        public const string CurrentVersion = "2.2";
+        public const string CurrentVersion = "2.3";
         private const string GitHubLatestReleasePage = GitHubUrl + "/releases/latest";
         private const string GitHubApiLatestRelease = "https://api.github.com/repos/fatih5228/LegionFanControl/releases/latest";
 
@@ -2433,29 +2501,40 @@ namespace LegionFanControl
             if (manual && _updateStatusText != null)
                 _updateStatusText.Text = Lang.T("update.checking");
 
+            _updateRetries = 0;
             System.Threading.Tasks.Task.Run(() =>
             {
                 string tag = null;
                 string pageUrl = GitHubLatestReleasePage;
-                bool failed = false;
-                try
+                bool failed;
+                while (true)
                 {
-                    ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
-                    var req = (HttpWebRequest)WebRequest.Create(GitHubApiLatestRelease);
-                    req.UserAgent = "LegionFanControl/" + CurrentVersion;
-                    req.Timeout = 8000;
-                    using (var resp = req.GetResponse())
-                    using (var sr = new StreamReader(resp.GetResponseStream()))
+                    failed = false;
+                    try
                     {
-                        string json = sr.ReadToEnd();
-                        var mt = Regex.Match(json, "\"tag_name\"\\s*:\\s*\"([^\"]+)\"");
-                        if (mt.Success) tag = mt.Groups[1].Value;
-                        var mu = Regex.Match(json, "\"html_url\"\\s*:\\s*\"([^\"]+)\"");
-                        if (mu.Success) pageUrl = mu.Groups[1].Value;
+                        ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
+                        var req = (HttpWebRequest)WebRequest.Create(GitHubApiLatestRelease);
+                        req.UserAgent = "LegionFanControl/" + CurrentVersion;
+                        req.Timeout = 8000;
+                        using (var resp = req.GetResponse())
+                        using (var sr = new StreamReader(resp.GetResponseStream()))
+                        {
+                            string json = sr.ReadToEnd();
+                            var mt = Regex.Match(json, "\"tag_name\"\\s*:\\s*\"([^\"]+)\"");
+                            if (mt.Success) tag = mt.Groups[1].Value;
+                            var mu = Regex.Match(json, "\"html_url\"\\s*:\\s*\"([^\"]+)\"");
+                            if (mu.Success) pageUrl = mu.Groups[1].Value;
+                        }
+                        if (tag == null) failed = true;
                     }
-                    if (tag == null) failed = true;
+                    catch { failed = true; }
+
+                    // Acilista ag henuz hazir olmayabilir; otomatik denetimde biraz bekleyip tekrar dene
+                    if (!failed || manual) break;
+                    _updateRetries++;
+                    if (_updateRetries > 3) break;
+                    System.Threading.Thread.Sleep(TimeSpan.FromSeconds(30));
                 }
-                catch { failed = true; }
 
                 string resultTag = tag, resultUrl = pageUrl;
                 Dispatcher.BeginInvoke(new Action(() => OnUpdateCheckDone(resultTag, resultUrl, failed, manual)));
@@ -2474,6 +2553,7 @@ namespace LegionFanControl
             if (IsNewerVersion(tag))
             {
                 _latestReleaseUrl = pageUrl;
+                _updateTag = tag;
                 if (_updateStatusText != null)
                     _updateStatusText.Text = Lang.F("update.available", tag);
                 if (_updateDownloadTb != null && _updateDownloadRun != null)
@@ -2481,6 +2561,12 @@ namespace LegionFanControl
                     _updateDownloadRun.Text = Lang.F("update.download", tag);
                     _updateDownloadTb.Visibility = Visibility.Visible;
                 }
+                if (_updateBanner != null && _updateBannerRun != null)
+                {
+                    _updateBannerRun.Text = Lang.F("update.available", tag);
+                    _updateBanner.Visibility = Visibility.Visible;
+                }
+                UpdateTrayLanguage();
                 if (_tray != null)
                 {
                     try
