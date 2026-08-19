@@ -664,11 +664,120 @@ namespace LegionFanControl
 
             var right = new StackPanel { Orientation = Orientation.Horizontal };
             Grid.SetColumn(right, 1);
+            right.Children.Add(BuildLangSelector());
             right.Children.Add(MakeTitleButton("—", false));
             right.Children.Add(MakeTitleButton("✕", true));
             bar.Children.Add(right);
 
             return bar;
+        }
+
+        // Baslik cubugundaki kompakt dil secici (acilir menu)
+        private UIElement BuildLangSelector()
+        {
+            var popup = new Popup
+            {
+                StaysOpen = false,
+                AllowsTransparency = true,
+                Placement = PlacementMode.Bottom
+            };
+
+            var menuPanel = new StackPanel();
+            foreach (var code in Lang.Available)
+            {
+                string lcode = code;
+                bool active = Lang.Current == lcode;
+                var row = new StackPanel { Orientation = Orientation.Horizontal };
+                row.Children.Add(new TextBlock
+                {
+                    Text = active ? "✓" : "",
+                    Foreground = RedGlowBrush,
+                    FontSize = 11,
+                    FontWeight = FontWeights.Bold,
+                    Width = 16,
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+                row.Children.Add(new TextBlock
+                {
+                    Text = lcode == "tr" ? "Türkçe" : "English",
+                    Foreground = active ? TextPrimary : TextSecondary,
+                    FontSize = 12,
+                    FontWeight = active ? FontWeights.SemiBold : FontWeights.Normal,
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+                var item = new Border
+                {
+                    Padding = new Thickness(10, 7, 14, 7),
+                    Background = Brushes.Transparent,
+                    Cursor = Cursors.Hand,
+                    Child = row
+                };
+                item.MouseEnter += (s, e) => item.Background = SelBrush;
+                item.MouseLeave += (s, e) => item.Background = Brushes.Transparent;
+                item.MouseLeftButtonUp += (s, e) =>
+                {
+                    e.Handled = true;
+                    popup.IsOpen = false;
+                    ChangeLanguage(lcode);
+                };
+                menuPanel.Children.Add(item);
+            }
+
+            popup.Child = new Border
+            {
+                Background = SubCardBrush,
+                BorderBrush = PanelEdgeBrush,
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Margin = new Thickness(0, 4, 0, 0),
+                Child = menuPanel
+            };
+
+            var head = new StackPanel { Orientation = Orientation.Horizontal };
+            head.Children.Add(new TextBlock
+            {
+                Text = Lang.Current.ToUpperInvariant(),
+                Foreground = TextSecondary,
+                FontSize = 11,
+                FontWeight = FontWeights.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            head.Children.Add(new TextBlock
+            {
+                Text = "▾",
+                Foreground = TextMutedBrush,
+                FontSize = 10,
+                Margin = new Thickness(5, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+
+            var btn = new Border
+            {
+                Padding = new Thickness(10, 5, 10, 5),
+                Margin = new Thickness(0, 0, 8, 0),
+                CornerRadius = new CornerRadius(7),
+                Background = Brushes.Transparent,
+                BorderBrush = PanelEdgeBrush,
+                BorderThickness = new Thickness(1),
+                Cursor = Cursors.Hand,
+                VerticalAlignment = VerticalAlignment.Center,
+                Child = head
+            };
+            System.Windows.Shell.WindowChrome.SetIsHitTestVisibleInChrome(btn, true);
+            popup.PlacementTarget = btn;
+            btn.MouseEnter += (s, e) => btn.Background = SelBrush;
+            btn.MouseLeave += (s, e) => btn.Background = Brushes.Transparent;
+            btn.MouseLeftButtonDown += (s, e) => { e.Handled = true; };
+            btn.MouseLeftButtonUp += (s, e) =>
+            {
+                e.Handled = true;
+                popup.IsOpen = !popup.IsOpen;
+            };
+
+            var host = new Grid();
+            host.Children.Add(btn);
+            host.Children.Add(popup);
+            return host;
         }
 
         private Border MakeTitleButton(string glyph, bool isClose)
@@ -1723,8 +1832,6 @@ namespace LegionFanControl
                 "🚀", _startupSwitch));
             _startupSwitch.SetCheckedQuietly(IsStartupEnabled());
 
-            sp.Children.Add(BuildLanguageCard());
-
             page.Children.Add(sp);
             return page;
         }
@@ -1801,99 +1908,6 @@ namespace LegionFanControl
         }
 
         // ---------------- Dil Secimi ----------------
-        private Border BuildLanguageCard()
-        {
-            var grid = new Grid();
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-            var iconBox = new Border
-            {
-                Width = 42, Height = 42,
-                CornerRadius = new CornerRadius(10),
-                Background = new LinearGradientBrush(
-                    Color.FromRgb(0x1C, 0x22, 0x2D),
-                    Color.FromRgb(0x12, 0x16, 0x1F),
-                    new Point(0, 0), new Point(1, 1)),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(0x35, 0xFF, 0xFF, 0xFF)),
-                BorderThickness = new Thickness(1),
-                Margin = new Thickness(0, 0, 14, 0)
-            };
-            iconBox.Child = new TextBlock
-            {
-                Text = "🌐",
-                FontSize = 18,
-                Foreground = Brushes.White,
-                FontFamily = new FontFamily("Segoe UI Emoji, Segoe UI Symbol, Arial"),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            grid.Children.Add(iconBox);
-
-            var sp = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-            sp.Children.Add(new TextBlock
-            {
-                Text = Lang.T("lang.title"),
-                Foreground = TextPrimary,
-                FontSize = 14,
-                FontWeight = FontWeights.SemiBold
-            });
-            sp.Children.Add(new TextBlock
-            {
-                Text = Lang.T("lang.desc"),
-                Foreground = TextSecondary,
-                FontSize = 11,
-                TextWrapping = TextWrapping.Wrap,
-                Margin = new Thickness(0, 2, 0, 0)
-            });
-            Grid.SetColumn(sp, 1);
-            grid.Children.Add(sp);
-
-            var btnPanel = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            btnPanel.Children.Add(MakeLangButton("tr", "Türkçe"));
-            btnPanel.Children.Add(MakeLangButton("en", "English"));
-            Grid.SetColumn(btnPanel, 2);
-            grid.Children.Add(btnPanel);
-
-            return MakeCard(grid, padding: new Thickness(16, 14, 16, 14));
-        }
-
-        private Border MakeLangButton(string lang, string label)
-        {
-            bool active = Lang.Current == lang;
-            var txt = new TextBlock
-            {
-                Text = label,
-                Foreground = active ? Brushes.White : TextSecondary,
-                FontSize = 12,
-                FontWeight = active ? FontWeights.Bold : FontWeights.Medium,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            var btn = new Border
-            {
-                Padding = new Thickness(14, 7, 14, 7),
-                Margin = new Thickness(lang == "tr" ? 0 : 8, 0, 0, 0),
-                CornerRadius = new CornerRadius(8),
-                Background = active ? RedBrush : SubCardBrush,
-                BorderBrush = active ? RedGlowBrush : PanelEdgeBrush,
-                BorderThickness = new Thickness(1),
-                Cursor = Cursors.Hand,
-                Child = txt
-            };
-            btn.MouseLeftButtonUp += (s, e) =>
-            {
-                e.Handled = true;
-                ChangeLanguage(lang);
-            };
-            return btn;
-        }
-
         private void ChangeLanguage(string lang)
         {
             if (Lang.Current == lang) return;
@@ -1926,7 +1940,7 @@ namespace LegionFanControl
 
         // ---------------- 4. Sayfa: HAKKINDA ----------------
         private const string GitHubUrl = "https://github.com/fatih5228/LegionFanControl";
-        public const string CurrentVersion = "2.1";
+        public const string CurrentVersion = "2.2";
         private const string GitHubLatestReleasePage = GitHubUrl + "/releases/latest";
         private const string GitHubApiLatestRelease = "https://api.github.com/repos/fatih5228/LegionFanControl/releases/latest";
 

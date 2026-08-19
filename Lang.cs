@@ -98,11 +98,8 @@ namespace LegionFanControl
             { "startup.off",        "Windows ile başlatma kapatıldı" },
             { "startup.fail",       "Başlangıç ayarı değiştirilemedi: {0}" },
 
-            { "lang.title",         "Dil / Language" },
-            { "lang.desc",          "Arayüz dilini seçin. Değişiklik anında uygulanır ve hatırlanır." },
-
             { "about.title",        "HAKKINDA" },
-            { "about.version",      "Sürüm 2.1 • .NET Framework (WPF)" },
+            { "about.version",      "Sürüm 2.2 • .NET Framework (WPF)" },
             { "about.desc",         "Lenovo Legion Y520 için Extreme Cooling, otomatik fan kontrolü ve oyun araçları." },
             { "about.dev",          "GELİŞTİRİCİ" },
             { "about.gh",           "KAYNAK KOD & GÜNCELLEMELER" },
@@ -193,11 +190,8 @@ namespace LegionFanControl
             { "startup.off",        "Start with Windows disabled" },
             { "startup.fail",       "Could not change startup setting: {0}" },
 
-            { "lang.title",         "Language / Dil" },
-            { "lang.desc",          "Select the interface language. The change applies instantly and is remembered." },
-
             { "about.title",        "ABOUT" },
-            { "about.version",      "Version 2.1 • .NET Framework (WPF)" },
+            { "about.version",      "Version 2.2 • .NET Framework (WPF)" },
             { "about.desc",         "Extreme Cooling, automatic fan control and gaming tools for Lenovo Legion Y520." },
             { "about.dev",          "DEVELOPER" },
             { "about.gh",           "SOURCE CODE & UPDATES" },

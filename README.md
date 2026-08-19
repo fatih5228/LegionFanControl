@@ -28,8 +28,8 @@ Extreme Cooling, temperature-threshold auto fan mode, hardware monitoring and ga
 
 [Releases](https://github.com/fatih5228/LegionFanControl/releases) sayfasından:
 
-- **LegionFanControl-Setup-v2.1.exe** — kurulum sihirbazı (önerilen) / installer (recommended)
-- **LegionFanControl-v2.1.zip** — kurulumsuz taşınabilir sürüm / portable version
+- **LegionFanControl-Setup-v2.2.exe** — kurulum sihirbazı (önerilen) / installer (recommended)
+- **LegionFanControl-v2.2.zip** — kurulumsuz taşınabilir sürüm / portable version
 
 > Uygulama WMI ve donanım sensörlerine erişmek için yönetici yetkisi ister.
 > The app requires administrator rights (WMI + hardware sensors).
