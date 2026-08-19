@@ -54,7 +54,7 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilen
 [Run]
 ; "Windows ile başlat" secildiyse Görev Zamanlayici'ya gorev ekle
 Filename: "schtasks.exe"; Parameters: "/Create /TN ""LegionFanControl"" /TR ""\""{app}\{#MyAppExeName}\"" --tray"" /SC ONLOGON /RL HIGHEST /F"; Flags: runhidden; Tasks: startup
-Filename: "{app}\{#MyAppExeName}"; Description: "Uygulamayı şimdi çalıştır"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Description: "Uygulamayı şimdi çalıştır"; Flags: nowait postinstall skipifsilent shellexec
 
 [UninstallRun]
 Filename: "schtasks.exe"; Parameters: "/Delete /TN ""LegionFanControl"" /F"; Flags: runhidden; RunOnceId: "RemoveStartupTask"
