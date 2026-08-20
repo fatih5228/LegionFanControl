@@ -563,16 +563,30 @@ namespace LegionFanControl
         // ---------------- UI Tasarimi ----------------
         private Border MakeCard(UIElement child, Thickness? margin = null, Thickness? padding = null)
         {
-            return new Border
+            // Golge ayri bir katmanda durur: efekt dogrudan karta uygulaninca
+            // WPF icerigi bitmap'e cevirir ve metinler bulanik gorunur.
+            var content = new Border
             {
                 Background = CardBrush,
                 CornerRadius = new CornerRadius(12),
                 BorderBrush = PanelEdgeBrush,
                 BorderThickness = new Thickness(1),
-                Effect = SoftShadow(16, 4, 0.4),
                 Padding = padding ?? new Thickness(18, 14, 18, 14),
-                Margin = margin ?? new Thickness(0, 0, 0, 10),
                 Child = child
+            };
+            var layers = new Grid();
+            layers.Children.Add(new Border
+            {
+                Background = CardBrush,
+                CornerRadius = new CornerRadius(12),
+                Effect = SoftShadow(16, 4, 0.4)
+            });
+            layers.Children.Add(content);
+            return new Border
+            {
+                Margin = margin ?? new Thickness(0, 0, 0, 10),
+                Tag = content,
+                Child = layers
             };
         }
 
@@ -2058,7 +2072,7 @@ namespace LegionFanControl
 
         // ---------------- 4. Sayfa: HAKKINDA ----------------
         private const string GitHubUrl = "https://github.com/fatih5228/LegionFanControl";
-        public const string CurrentVersion = "2.4";
+        public const string CurrentVersion = "2.5";
         private const string GitHubLatestReleasePage = GitHubUrl + "/releases/latest";
         private const string GitHubApiLatestRelease = "https://api.github.com/repos/fatih5228/LegionFanControl/releases/latest";
 
@@ -2434,7 +2448,10 @@ namespace LegionFanControl
 
             if (_heroCardBorder != null)
             {
-                _heroCardBorder.BorderBrush = on ? new SolidColorBrush(Color.FromArgb(0x80, 0xE2, 0x23, 0x1A)) : PanelEdgeBrush;
+                // MakeCard artik sarmalayici dondurur; cerceve asil icerik kartinda (Tag)
+                var heroInner = _heroCardBorder.Tag as Border;
+                if (heroInner != null)
+                    heroInner.BorderBrush = on ? new SolidColorBrush(Color.FromArgb(0x80, 0xE2, 0x23, 0x1A)) : PanelEdgeBrush;
             }
 
             if (_trayToggleItem != null)

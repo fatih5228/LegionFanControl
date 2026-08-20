@@ -1,9 +1,9 @@
 ; Legion Y520 Fan Kontrol — Inno Setup kurulum betigi
 ; Derlemek icin: ISCC.exe kurulum.iss   (Inno Setup 6 gereklidir)
-; Cikti: dist\LegionFanControl-Setup-v2.4.exe
+; Cikti: dist\LegionFanControl-Setup-v2.5.exe
 
 #define MyAppName "Legion Y520 Fan Kontrol"
-#define MyAppVersion "2.4"
+#define MyAppVersion "2.5"
 #define MyAppPublisher "fatih5228"
 #define MyAppURL "https://github.com/fatih5228/LegionFanControl"
 #define MyAppExeName "LegionFanControl.exe"
@@ -20,7 +20,7 @@ DefaultDirName={autopf}\LegionFanControl
 DefaultGroupName={#MyAppName}
 PrivilegesRequired=admin
 OutputDir=dist
-OutputBaseFilename=LegionFanControl-Setup-v2.4
+OutputBaseFilename=LegionFanControl-Setup-v2.5
 SetupIconFile=app.ico
 UninstallDisplayIcon={app}\app.ico
 Compression=lzma2
