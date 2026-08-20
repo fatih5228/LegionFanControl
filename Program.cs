@@ -359,6 +359,7 @@ namespace LegionFanControl
         private TextBlock _updateStatusText, _updateDownloadTb;
         private System.Windows.Documents.Run _updateDownloadRun, _updateBannerRun;
         private Forms.ToolStripMenuItem _trayToggleItem, _trayShowItem, _trayExitItem;
+        private Forms.ToolStripMenuItem _trayInfoCpu, _trayInfoGpu, _trayInfoFans;
         private Drawing.Icon _iconOn, _iconOff;
 
         public MainWindow()
@@ -414,6 +415,7 @@ namespace LegionFanControl
             {
                 _timer.Stop();
                 _lhm.Close();
+                if (_hwnd != IntPtr.Zero) UnregisterHotKey(_hwnd, HotkeyId);
                 if (_tray != null) { _tray.Visible = false; _tray.Dispose(); }
                 if (_hw != null) _hw.Dispose();
             };
@@ -515,20 +517,47 @@ namespace LegionFanControl
         [System.Runtime.InteropServices.DllImport("dwmapi.dll")]
         private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
 
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+
+        private const int HotkeyId = 0x51F4;
+        private const uint ModControl = 0x0002, ModAlt = 0x0001, KeyF = 0x46;
+        private IntPtr _hwnd = IntPtr.Zero;
+
         protected override void OnSourceInitialized(EventArgs e)
         {
             base.OnSourceInitialized(e);
             try
             {
                 var helper = new System.Windows.Interop.WindowInteropHelper(this);
+                _hwnd = helper.Handle;
                 int darkMode = 1;
                 DwmSetWindowAttribute(helper.Handle, 20, ref darkMode, sizeof(int));
                 DwmSetWindowAttribute(helper.Handle, 19, ref darkMode, sizeof(int));
 
                 int val = 2; // DWMWCP_ROUND (Windows 11 standard rounded corners)
                 DwmSetWindowAttribute(helper.Handle, 33, ref val, sizeof(int));
+
+                // Global kisayol: Ctrl+Alt+F -> Extreme Cooling ac/kapat
+                var src = System.Windows.Interop.HwndSource.FromHwnd(helper.Handle);
+                if (src != null) src.AddHook(WndProc);
+                RegisterHotKey(helper.Handle, HotkeyId, ModControl | ModAlt, KeyF);
             }
             catch { }
+        }
+
+        private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            const int WmHotkey = 0x0312;
+            if (msg == WmHotkey && wParam.ToInt32() == HotkeyId)
+            {
+                handled = true;
+                if (_extremeSwitch != null)
+                    ToggleCooling(!_extremeSwitch.IsChecked);
+            }
+            return IntPtr.Zero;
         }
 
         // ---------------- UI Tasarimi ----------------
@@ -1196,6 +1225,13 @@ namespace LegionFanControl
                 Margin = new Thickness(0, 2, 0, 0)
             };
             textStack.Children.Add(_heroDescText);
+            textStack.Children.Add(new TextBlock
+            {
+                Text = Lang.T("hero.hotkey"),
+                Foreground = TextMutedBrush,
+                FontSize = 10,
+                Margin = new Thickness(0, 3, 0, 0)
+            });
             topRow.Children.Add(textStack);
 
             // Switch
@@ -1993,6 +2029,20 @@ namespace LegionFanControl
             Poll();
         }
 
+        private void UpdateTrayInfo(float? cpu, float? gpu, uint fan1, uint fan2)
+        {
+            if (_trayInfoCpu != null) _trayInfoCpu.Text = Lang.F("tray.info.cpu", FmtTemp(cpu));
+            if (_trayInfoGpu != null) _trayInfoGpu.Text = Lang.F("tray.info.gpu", FmtTemp(gpu));
+            if (_trayInfoFans != null)
+                _trayInfoFans.Text = Lang.F("tray.info.fans",
+                    (fan1 > 0 || fan2 > 0) ? fan1 + " / " + fan2 + " RPM" : "—");
+        }
+
+        private static string FmtTemp(float? t)
+        {
+            return t.HasValue && t.Value > 0 ? ((int)Math.Round(t.Value) + " °C") : "—";
+        }
+
         private void UpdateTrayLanguage()
         {
             if (_tray == null) return;
@@ -2008,7 +2058,7 @@ namespace LegionFanControl
 
         // ---------------- 4. Sayfa: HAKKINDA ----------------
         private const string GitHubUrl = "https://github.com/fatih5228/LegionFanControl";
-        public const string CurrentVersion = "2.3";
+        public const string CurrentVersion = "2.4";
         private const string GitHubLatestReleasePage = GitHubUrl + "/releases/latest";
         private const string GitHubApiLatestRelease = "https://api.github.com/repos/fatih5228/LegionFanControl/releases/latest";
 
@@ -2468,6 +2518,7 @@ namespace LegionFanControl
                         SetTempBadge(_cpuTempVal, _cpuTempBadge, null);
                         SetTempBadge(_gpuTempVal, _gpuTempBadge, null);
                         SetTempBadge(_irTempVal, _irTempBadge, null);
+                        UpdateTrayInfo(null, null, 0, 0);
                         return;
                     }
 
@@ -2481,6 +2532,7 @@ namespace LegionFanControl
                     SetTempBadge(_cpuTempVal, _cpuTempBadge, effCpu);
                     SetTempBadge(_gpuTempVal, _gpuTempBadge, lhmGpu);
                     SetTempBadge(_irTempVal, _irTempBadge, irT > 0 ? (float?)irT : (float?)null);
+                    UpdateTrayInfo(effCpu, lhmGpu, fan1, fan2);
 
                     SetStatus(Lang.F("status.lastupdate", DateTime.Now.ToString("HH:mm:ss")) +
                               (lhmNote != null ? "  •  " + lhmNote : ""), false);
@@ -2620,6 +2672,13 @@ namespace LegionFanControl
             };
 
             var menu = new Forms.ContextMenuStrip();
+            _trayInfoCpu = new Forms.ToolStripMenuItem(Lang.F("tray.info.cpu", "—")) { Enabled = false };
+            _trayInfoGpu = new Forms.ToolStripMenuItem(Lang.F("tray.info.gpu", "—")) { Enabled = false };
+            _trayInfoFans = new Forms.ToolStripMenuItem(Lang.F("tray.info.fans", "—")) { Enabled = false };
+            menu.Items.Add(_trayInfoCpu);
+            menu.Items.Add(_trayInfoGpu);
+            menu.Items.Add(_trayInfoFans);
+            menu.Items.Add(new Forms.ToolStripSeparator());
             _trayShowItem = new Forms.ToolStripMenuItem(Lang.T("tray.show"));
             _trayShowItem.Click += (s, e) => ShowWindow();
             menu.Items.Add(_trayShowItem);

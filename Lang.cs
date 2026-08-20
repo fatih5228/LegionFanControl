@@ -54,6 +54,7 @@ namespace LegionFanControl
             { "hero.badge.init",    "Durum: Standart Fan Hızı" },
             { "hero.status.on",     "● Extreme Cooling Aktif - Maksimum Fan Devri Devrede" },
             { "hero.status.off",    "○ Standart Fan Eğrisi Devrede" },
+            { "hero.hotkey",        "Kısayol: Ctrl+Alt+F → Extreme Cooling aç/kapat" },
 
             { "auto.title",         "OTOMATİK FAN KONTROLÜ" },
             { "auto.desc",          "İşlemci sıcaklığı eşiğe ulaştığında Extreme Cooling otomatik açılır" },
@@ -99,7 +100,7 @@ namespace LegionFanControl
             { "startup.fail",       "Başlangıç ayarı değiştirilemedi: {0}" },
 
             { "about.title",        "HAKKINDA" },
-            { "about.version",      "Sürüm 2.3 • .NET Framework (WPF)" },
+            { "about.version",      "Sürüm 2.4 • .NET Framework (WPF)" },
             { "about.desc",         "Lenovo Legion Y520 için Extreme Cooling, otomatik fan kontrolü ve oyun araçları." },
             { "about.dev",          "GELİŞTİRİCİ" },
             { "about.gh",           "KAYNAK KOD & GÜNCELLEMELER" },
@@ -117,6 +118,9 @@ namespace LegionFanControl
             { "update.balloon.title", "Güncelleme Mevcut" },
 
             { "tray.tip",           "Legion Y520 Fan Kontrol" },
+            { "tray.info.cpu",      "CPU: {0}" },
+            { "tray.info.gpu",      "GPU: {0}" },
+            { "tray.info.fans",     "Fanlar: {0}" },
             { "tray.show",          "Pencereyi Göster" },
             { "tray.cool.on",       "Extreme Cooling Aç" },
             { "tray.cool.off",      "Extreme Cooling Kapat" },
@@ -147,6 +151,7 @@ namespace LegionFanControl
             { "hero.badge.init",    "Status: Standard Fan Speed" },
             { "hero.status.on",     "● Extreme Cooling Active - Maximum Fan Speed Engaged" },
             { "hero.status.off",    "○ Standard Fan Curve Active" },
+            { "hero.hotkey",        "Shortcut: Ctrl+Alt+F → Toggle Extreme Cooling" },
 
             { "auto.title",         "AUTOMATIC FAN CONTROL" },
             { "auto.desc",          "Extreme Cooling turns on automatically when CPU temperature reaches the threshold" },
@@ -192,7 +197,7 @@ namespace LegionFanControl
             { "startup.fail",       "Could not change startup setting: {0}" },
 
             { "about.title",        "ABOUT" },
-            { "about.version",      "Version 2.3 • .NET Framework (WPF)" },
+            { "about.version",      "Version 2.4 • .NET Framework (WPF)" },
             { "about.desc",         "Extreme Cooling, automatic fan control and gaming tools for Lenovo Legion Y520." },
             { "about.dev",          "DEVELOPER" },
             { "about.gh",           "SOURCE CODE & UPDATES" },
@@ -210,6 +215,9 @@ namespace LegionFanControl
             { "update.balloon.title", "Update Available" },
 
             { "tray.tip",           "Legion Y520 Fan Control" },
+            { "tray.info.cpu",      "CPU: {0}" },
+            { "tray.info.gpu",      "GPU: {0}" },
+            { "tray.info.fans",     "Fans: {0}" },
             { "tray.show",          "Show Window" },
             { "tray.cool.on",       "Turn Extreme Cooling On" },
             { "tray.cool.off",      "Turn Extreme Cooling Off" },

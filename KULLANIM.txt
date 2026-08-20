@@ -17,6 +17,9 @@ PENCERE
   taşıyabilirsiniz.
 - Şeridin sağındaki "—" düğmesi simge durumuna küçültür, "✕" düğmesi
   pencereyi gizleyip tepsiye küçültür (uygulama kapanmaz).
+- Şeritteki "TR/EN" menüsünden arayüz dili anında değiştirilir;
+  seçim ayarlar.ini'de saklanır. İlk açılışta Windows'un dili
+  otomatik algılanır.
 - Pencere sağ alt köşesindeki tutamaçtan boyutlandırılabilir.
 
 SAYFALAR (sol menü)
@@ -24,6 +27,8 @@ SAYFALAR (sol menü)
 FAN KONTROL
   - EXTREME COOLING düğmesi: tıklayınca fanlar tam hıza çıkar
     (AÇIK = kırmızı), tekrar tıklayınca normal moda döner (KAPALI = gri).
+  - Global kısayol: Ctrl+Alt+F, uygulama tepsideyken bile her yerden
+    Extreme Cooling'i açar/kapatır.
   - OTOMATİK MOD: açıkken (kırmızı) fanlar sıcaklığa göre yönetilir.
     Kaydırıcı ile eşik sıcaklığı ayarlanır (50–95 °C, varsayılan 70 °C):
     CPU bu sıcaklığa ulaşınca Extreme Cooling kendiliğinden açılır,
@@ -45,10 +50,7 @@ SİSTEM
   - Touchpad Kilidi: açıkken touchpad devre dışı kalır.
   - Windows ile Başlat: açıkken bilgisayar her açıldığında uygulama
     yönetici yetkisiyle kendiliğinden başlar (Görev Zamanlayıcı'ya
-    "LegionFanControl" görevi eklenir) ve tepside çalışır.
-  - Dil / Language: arayüz dili Türkçe veya İngilizce seçilebilir;
-    değişiklik anında uygulanır ve ayarlar.ini'de saklanır. İlk
-    açılışta Windows'un dili otomatik algılanır.
+    "LegionFanControl" görevi eklenir) ve pencere açmadan tepside çalışır.
   - Not: Bu BIOS'ta fan toz temizleme özelliği yoktur.
 
 HAKKINDA
@@ -61,9 +63,10 @@ SİSTEM TEPSİSİ
 - Simge Legion "Y" logosudur: Extreme Cooling AÇIKken KIRMIZI,
   KAPALIyken GRİ görünür.
 - Simgeye SAĞ tıklayın:
-    * Göster                    -> pencereyi açar
-    * Extreme Cooling Aç/Kapat  -> mevcut duruma göre değiştirir
-    * Çıkış                     -> uygulamayı tamamen kapatır
+    * CPU / GPU / Fanlar         -> anlık sıcaklık ve RPM bilgisi (salt bilgi)
+    * Göster                     -> pencereyi açar
+    * Extreme Cooling Aç/Kapat   -> mevcut duruma göre değiştirir
+    * Çıkış                      -> uygulamayı tamamen kapatır
 - Simgeye ÇİFT tıklamak da pencereyi açar.
 
 KAPATMA
