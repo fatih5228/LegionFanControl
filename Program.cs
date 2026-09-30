@@ -406,8 +406,11 @@ namespace LegionFanControl
             LoadHardwareInfo();
             RefreshSysStates();
             RefreshStartupState();
-            EnsureStartupTaskUpToDate();
-            CheckForUpdates(false);
+            if (!ScreenshotMode)
+            {
+                EnsureStartupTaskUpToDate();
+                CheckForUpdates(false);
+            }
 
             // Tepsiden (--tray) baslayinca pencere hic gosterilmez; pencere tanitici
             // simdi olusturulur ki OnSourceInitialized calissin ve Ctrl+Alt+F kaydedilsin.
@@ -420,7 +423,7 @@ namespace LegionFanControl
 
             Closing += (s, e) =>
             {
-                if (!_realExit)
+                if (!_realExit && !ScreenshotMode)
                 {
                     e.Cancel = true;
                     Hide();
@@ -576,7 +579,8 @@ namespace LegionFanControl
                 // Global kisayol: Ctrl+Alt+F -> Extreme Cooling ac/kapat
                 var src = System.Windows.Interop.HwndSource.FromHwnd(helper.Handle);
                 if (src != null) src.AddHook(WndProc);
-                _hotkeyOk = RegisterHotKey(helper.Handle, HotkeyId, ModControl | ModAlt, KeyF);
+                if (!ScreenshotMode)
+                    _hotkeyOk = RegisterHotKey(helper.Handle, HotkeyId, ModControl | ModAlt, KeyF);
             }
             catch { _hotkeyOk = false; }
             UpdateHotkeyHint();
@@ -1147,6 +1151,9 @@ namespace LegionFanControl
             outer.Child = mainGrid;
             return outer;
         }
+
+        // --shot: README ekran goruntuleri; kisayol, baslangic gorevi ve guncelleme denetimine dokunmaz
+        public static bool ScreenshotMode;
 
         public int PageCount { get { return _pages.Length; } }
 
@@ -2920,12 +2927,15 @@ namespace LegionFanControl
             {
                 string outDir = IOPath.GetDirectoryName(typeof(MainWindow).Assembly.Location) ?? AppDomain.CurrentDomain.BaseDirectory;
                 var shotApp = new Application();
+                MainWindow.ScreenshotMode = true;
                 var shotWin = new MainWindow();
                 shotWin.Show();
                 shotWin.UpdateLayout();
-                // Pump dispatcher to allow layout and initial loads
+                // Fan/sicaklik okumasi ve donanim bilgisi arka planda gelir; birkac saniye bekle
                 var frame = new DispatcherFrame();
-                Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Background, new DispatcherOperationCallback(f => { ((DispatcherFrame)f).Continue = false; return null; }), frame);
+                var wait = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+                wait.Tick += (s, e) => { wait.Stop(); frame.Continue = false; };
+                wait.Start();
                 Dispatcher.PushFrame(frame);
 
                 int w = (int)Math.Max(830, shotWin.ActualWidth);
