@@ -3,12 +3,13 @@ LEGION Y520 — FAN KONTROL
 
 Lenovo Legion Y520-15IKBN (80WK) için sistem tepsili fan kontrol
 aracıdır. Yönetici yetkisi ister (WMI ve donanım sensörleri için).
-Masaüstündeki "Legion Fan Kontrol" kısayolu ile açılabilir.
+Başlat menüsündeki (kurulumda seçildiyse masaüstündeki de)
+"Legion Y520 Fan Kontrol" kısayolu ile açılabilir.
 
 AÇILIŞ
 ------
 - LegionFanControl.exe'ye çift tıklayın. UAC (yönetici) sorusuna "Evet" deyin.
-- Pencere açılır ve sistem tepsisine (saat yanı) kırmızı fan simgesi yerleşir.
+- Pencere açılır ve sistem tepsisine (saat yanı) Legion simgesi yerleşir.
 
 PENCERE
 -------
@@ -33,24 +34,31 @@ FAN KONTROL
     Kaydırıcı ile eşik sıcaklığı ayarlanır (50–95 °C, varsayılan 70 °C):
     CPU bu sıcaklığa ulaşınca Extreme Cooling kendiliğinden açılır,
     eşiğin 5 °C altına inince kapanır. Otomatik mod açıkken manuel
-    Extreme Cooling düğmesi devre dışıdır.
+    Extreme Cooling düğmesi devre dışıdır. Otomatik mod kapatılınca,
+    otomatik modun açtığı Extreme Cooling de kapanır.
     Otomatik mod ayarları exe'nin yanındaki ayarlar.ini dosyasında
     saklanır ve yeniden açılışta hatırlanır.
   - FAN 1 / FAN 2: anlık RPM değerleri ve doluluk çubuğu
     (2 saniyede bir güncellenir).
-  - Sıcaklıklar: CPU ve GPU, LibreHardwareMonitor sensörlerinden okunur;
-    "Sistem" değeri BIOS'un IR sensöründen gelir.
+  - Sıcaklıklar: CPU ve GPU, LibreHardwareMonitor sensörlerinden okunur.
+    LibreHardwareMonitor CPU'yu okuyamazsa CPU değeri EC sensöründen (WMI)
+    gelir; her kartın altında değerin hangi kaynaktan okunduğu yazar.
+    "Sistem / IR" değeri EC'nin IR sensöründen gelir.
 
 DONANIM
-  - İşlemci, GPU'lar, model, RAM ve BIOS sürümü bilgileri.
+  - İşlemci (çekirdek / iş parçacığı), ekran kartları, bellek (modül
+    sayısı ve hızı), model ve BIOS sürümü; hepsi Windows'tan (WMI) okunur.
+  - BIOS kartında LENOVO_GAMEZONE_DATA bağlantısının gerçek durumu görünür:
+    erişilemiyorsa fan kontrolü çalışmaz ve nedeni burada yazar.
 
 SİSTEM
-  - Win Tuşu Kilidi: açıkken (KİLİTLİ, kırmızı) Windows tuşu devre dışı
+  - Win Tuşu Kilidi: açıkken (AÇIK, kırmızı) Windows tuşu devre dışı
     kalır — oyun modu.
   - Touchpad Kilidi: açıkken touchpad devre dışı kalır.
   - Windows ile Başlat: açıkken bilgisayar her açıldığında uygulama
     yönetici yetkisiyle kendiliğinden başlar (Görev Zamanlayıcı'ya
     "LegionFanControl" görevi eklenir) ve pencere açmadan tepside çalışır.
+    Görev pille açılışta da çalışır ve Windows tarafından durdurulmaz.
   - Not: Bu BIOS'ta fan toz temizleme özelliği yoktur.
 
 HAKKINDA
@@ -64,7 +72,7 @@ SİSTEM TEPSİSİ
   KAPALIyken GRİ görünür.
 - Simgeye SAĞ tıklayın:
     * CPU / GPU / Fanlar         -> anlık sıcaklık ve RPM bilgisi (salt bilgi)
-    * Göster                     -> pencereyi açar
+    * Pencereyi Göster           -> pencereyi açar
     * Extreme Cooling Aç/Kapat   -> mevcut duruma göre değiştirir
     * Çıkış                      -> uygulamayı tamamen kapatır
 - Simgeye ÇİFT tıklamak da pencereyi açar.
@@ -80,10 +88,8 @@ NOTLAR
 ------
 - Extreme Cooling ayarı kalıcıdır; uygulama kapansa bile fanlar
   son ayarlanan modda çalışmaya devam eder.
-- CPU/GPU sıcaklıkları için LibreHardwareMonitorLib.dll, HidSharp.dll
-  ve System.Management.dll dosyalarının exe ile aynı klasörde olması
-  gerekir; silerseniz sıcaklıklar "—" görünür ama fan kontrolü
-  çalışmaya devam eder.
-- Bazı antivirüs/Defender ayarları donanım sürücüsünü engellerse
-  CPU/GPU sıcaklığı okunamaz; bu durumda uygulama normal çalışır,
-  sadece sıcaklık satırları boş görünür.
+- LibreHardwareMonitorLib.dll, HidSharp.dll ve System.Management.dll
+  dosyaları exe ile aynı klasörde olmalıdır.
+- Bazı antivirüs/Defender ayarları LibreHardwareMonitor'ın donanım
+  sürücüsünü engellerse GPU sıcaklığı "—" görünür; CPU sıcaklığı bu
+  durumda EC sensöründen gösterilir. Fan kontrolü etkilenmez.

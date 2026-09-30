@@ -10,13 +10,13 @@ Extreme Cooling, temperature-threshold auto fan mode, hardware monitoring and ga
 
 ## Özellikler / Features
 
-- ⚡ **Extreme Cooling** — tek tıkla fanları tam hıza çıkarır / max fan speed with one click
-- 🌡 **Otomatik Mod** — CPU sıcaklığı eşiğe ulaşınca otomatik açılır, 5 °C histerezis ile kapanır / auto mode with adjustable threshold (50–95 °C) and 5 °C hysteresis
-- 📊 **Canlı izleme** — Fan 1/Fan 2 RPM, CPU & GPU sıcaklığı (LibreHardwareMonitor), IR sıcaklığı / live RPM and temperatures
-- 🎮 **Oyun araçları** — Windows tuşu ve touchpad kilidi / Windows key & touchpad lock
-- 🚀 **Windows ile başlat** — Görev Zamanlayıcı üzerinden yönetici yetkisiyle otomatik başlatma / autostart via Task Scheduler
-- 🌐 **Türkçe & İngilizce** arayüz, anında dil değişimi / bilingual UI with instant switching
-- 🔔 Sistem tepsisinde çalışır / runs in the system tray
+- **Extreme Cooling** — tek tıkla fanları tam hıza çıkarır / max fan speed with one click
+- **Otomatik Mod** — CPU sıcaklığı eşiğe ulaşınca otomatik açılır, 5 °C histerezis ile kapanır / auto mode with adjustable threshold (50–95 °C) and 5 °C hysteresis
+- **Canlı izleme** — Fan 1/Fan 2 RPM, CPU & GPU sıcaklığı (LibreHardwareMonitor; yoksa EC sensörü), IR sıcaklığı / live RPM and temperatures
+- **Oyun araçları** — Windows tuşu ve touchpad kilidi / Windows key & touchpad lock
+- **Windows ile başlat** — Görev Zamanlayıcı üzerinden yönetici yetkisiyle, pilde de çalışan otomatik başlatma / autostart via Task Scheduler (also on battery)
+- **Türkçe & İngilizce** arayüz, anında dil değişimi / bilingual UI with instant switching
+- Sistem tepsisinde çalışır / runs in the system tray
 
 ## Ekran Görüntüleri / Screenshots
 
@@ -28,8 +28,8 @@ Extreme Cooling, temperature-threshold auto fan mode, hardware monitoring and ga
 
 [Releases](https://github.com/fatih5228/LegionFanControl/releases) sayfasından:
 
-- **LegionFanControl-Setup-v2.6.exe** — kurulum sihirbazı (önerilen) / installer (recommended)
-- **LegionFanControl-v2.6.zip** — kurulumsuz taşınabilir sürüm / portable version
+- **LegionFanControl-Setup-v2.7.exe** — kurulum sihirbazı (önerilen) / installer (recommended)
+- **LegionFanControl-v2.7.zip** — kurulumsuz taşınabilir sürüm / portable version
 
 > Uygulama WMI ve donanım sensörlerine erişmek için yönetici yetkisi ister.
 > The app requires administrator rights (WMI + hardware sensors).

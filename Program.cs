@@ -13,7 +13,6 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
@@ -89,6 +88,8 @@ namespace LegionFanControl
         private bool _tried;
         public string CpuNote = "";
         public string GpuNote = "";
+        public string CpuSensor = ""; // okunan CPU sensorunun adi (or. "CPU Package")
+        public string GpuName = "";   // sicakligi okunan ekran karti
 
         public bool Available { get { return _computer != null; } }
 
@@ -140,28 +141,41 @@ namespace LegionFanControl
                          hw.HardwareType == HardwareType.GpuAmd ||
                          hw.HardwareType == HardwareType.GpuIntel;
             if (!isCpu && !isGpu) return;
-            float? first = null;
+            ISensor first = null;
             foreach (var s in hw.Sensors)
             {
                 if (s.SensorType != SensorType.Temperature || !s.Value.HasValue) continue;
-                if (!first.HasValue) first = s.Value;
+                if (first == null) first = s;
                 string n = s.Name ?? "";
                 if (isCpu && (n.IndexOf("Package", StringComparison.OrdinalIgnoreCase) >= 0 ||
                               n.IndexOf("Core Average", StringComparison.OrdinalIgnoreCase) >= 0))
                 {
-                    cpu = s.Value;
-                    CpuNote = "CPU: " + n;
+                    SetCpu(s, ref cpu);
                     return;
                 }
                 if (isGpu && n.IndexOf("Core", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
-                    gpu = s.Value;
-                    GpuNote = "GPU: " + n;
+                    SetGpu(hw, s, ref gpu);
                     return;
                 }
             }
-            if (isCpu && !cpu.HasValue && first.HasValue) cpu = first;
-            if (isGpu && !gpu.HasValue && first.HasValue) gpu = first;
+            if (first == null) return;
+            if (isCpu && !cpu.HasValue) SetCpu(first, ref cpu);
+            if (isGpu && !gpu.HasValue) SetGpu(hw, first, ref gpu);
+        }
+
+        private void SetCpu(ISensor s, ref float? cpu)
+        {
+            cpu = s.Value;
+            CpuSensor = s.Name ?? "";
+            CpuNote = "CPU: " + CpuSensor;
+        }
+
+        private void SetGpu(IHardware hw, ISensor s, ref float? gpu)
+        {
+            gpu = s.Value;
+            GpuName = hw.Name ?? "";
+            GpuNote = "GPU: " + (s.Name ?? "");
         }
 
         public void Close()
@@ -282,7 +296,7 @@ namespace LegionFanControl
     {
         private uint MaxRpm = 4000;
 
-        // Renk Paleti (Lenovo Legion Dark Gaming Estetigi)
+        // Renk paleti
         public static readonly Brush BgBrush = new SolidColorBrush(Color.FromRgb(0x0C, 0x0E, 0x12));
         public static readonly Brush SidebarBrush = new SolidColorBrush(Color.FromRgb(0x12, 0x15, 0x1B));
         public static readonly Brush TitlebarBrush = new SolidColorBrush(Color.FromRgb(0x09, 0x0A, 0x0D));
@@ -331,6 +345,7 @@ namespace LegionFanControl
         private Rectangle _fan1Bar, _fan2Bar;
         private TextBlock _cpuTempVal, _gpuTempVal, _irTempVal;
         private Border _cpuTempBadge, _gpuTempBadge, _irTempBadge;
+        private TextBlock _cpuTempSrc, _gpuTempSrc;
 
         // Otomatik Mod Durumu
         private bool _autoMode;
@@ -367,7 +382,6 @@ namespace LegionFanControl
         private Forms.NotifyIcon _tray;
         private string _latestReleaseUrl;
         private string _updateTag;
-        private int _updateRetries;
         private Border _updateBanner;
         private bool _updateBannerDismissed;
         private TextBlock _updateStatusText, _updateDownloadTb;
@@ -657,7 +671,6 @@ namespace LegionFanControl
             right.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             right.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
-            // Guncelleme Uyari Bandi (yeni surum bulununca gorunur)
             _updateBanner = new Border
             {
                 Background = new SolidColorBrush(Color.FromArgb(0x26, 0xE2, 0x23, 0x1A)),
@@ -725,7 +738,6 @@ namespace LegionFanControl
             Grid.SetRow(contentHost, 1);
             right.Children.Add(contentHost);
 
-            // Alt Durum Cubugu (Status Bar)
             var statusBar = new Border
             {
                 Background = TitlebarBrush,
@@ -988,7 +1000,6 @@ namespace LegionFanControl
             mainGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
-            // Logo & Header
             var logoCard = new Border
             {
                 Margin = new Thickness(14, 16, 14, 14),
@@ -1034,7 +1045,6 @@ namespace LegionFanControl
             logoCard.Child = logoStack;
             mainGrid.Children.Add(logoCard);
 
-            // Navigasyon Butonlari
             var menuStack = new StackPanel { Margin = new Thickness(10, 6, 10, 0) };
             Grid.SetRow(menuStack, 1);
 
@@ -1122,7 +1132,6 @@ namespace LegionFanControl
             }
             mainGrid.Children.Add(menuStack);
 
-            // Alt Bilgi
             var footer = new Border
             {
                 Padding = new Thickness(16, 12, 16, 12),
@@ -1214,16 +1223,12 @@ namespace LegionFanControl
             var page = new Grid();
             var sp = new StackPanel();
 
-            // HERO CARD: Extreme Cooling
             sp.Children.Add(BuildExtremeCoolingHeroCard());
 
-            // AUTO MODE CARD
             sp.Children.Add(BuildAutoModeCard());
 
-            // DUAL FAN SPEED CARDS
             sp.Children.Add(BuildDualFanDashboard());
 
-            // TEMPERATURE TELEMETRY CARDS
             sp.Children.Add(BuildTelemetryGrid());
 
             var sv = new ScrollViewer
@@ -1247,7 +1252,6 @@ namespace LegionFanControl
             topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-            // Ikon Rozeti
             var iconBadge = new Border
             {
                 Width = 46, Height = 46,
@@ -1271,7 +1275,6 @@ namespace LegionFanControl
             };
             topRow.Children.Add(iconBadge);
 
-            // Metinler
             var textStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
             Grid.SetColumn(textStack, 1);
             textStack.Children.Add(new TextBlock
@@ -1300,7 +1303,6 @@ namespace LegionFanControl
             UpdateHotkeyHint();
             topRow.Children.Add(textStack);
 
-            // Switch
             _extremeSwitch = new ModernSwitch();
             _extremeSwitch.StateChanged += (on) =>
             {
@@ -1311,7 +1313,6 @@ namespace LegionFanControl
 
             cardGrid.Children.Add(topRow);
 
-            // Alt durum cubugu
             var banner = new Border
             {
                 Margin = new Thickness(0, 12, 0, 0),
@@ -1391,7 +1392,6 @@ namespace LegionFanControl
             headerGrid.Children.Add(_autoSwitch);
             box.Children.Add(headerGrid);
 
-            // Ayırıcı çizgi
             box.Children.Add(new Border
             {
                 Height = 1,
@@ -1399,7 +1399,6 @@ namespace LegionFanControl
                 Margin = new Thickness(0, 12, 0, 12)
             });
 
-            // Slider Alanı
             var sliderContainer = new Grid();
             sliderContainer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             sliderContainer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -1435,7 +1434,6 @@ namespace LegionFanControl
             StyleSlider(_thresholdSlider);
             sliderColumn.Children.Add(_thresholdSlider);
 
-            // Min/Max göstergeleri
             var scaleRow = new Grid { Margin = new Thickness(0, 4, 0, 0) };
             scaleRow.Children.Add(new TextBlock
             {
@@ -1462,7 +1460,6 @@ namespace LegionFanControl
 
             sliderContainer.Children.Add(sliderColumn);
 
-            // Büyük Derece Rozeti
             var badgeBorder = new Border
             {
                 Background = SubCardBrush,
@@ -1487,7 +1484,6 @@ namespace LegionFanControl
 
             box.Children.Add(sliderContainer);
 
-            // Histerezis Notu
             box.Children.Add(new TextBlock
             {
                 Text = Lang.T("auto.note"),
@@ -1652,9 +1648,10 @@ namespace LegionFanControl
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-            var cpuCard = BuildTelemetryCard(Lang.T("temp.cpu"), Lang.T("temp.cpu.sub"), "⚡", CyanBrush, out _cpuTempVal, out _cpuTempBadge);
-            var gpuCard = BuildTelemetryCard(Lang.T("temp.gpu"), "GTX 1050 / Intel", "🎮", GreenBrush, out _gpuTempVal, out _gpuTempBadge);
-            var irCard = BuildTelemetryCard(Lang.T("temp.ir"), Lang.T("temp.ir.sub"), "🌡", OrangeBrush, out _irTempVal, out _irTempBadge);
+            TextBlock irSrc;
+            var cpuCard = BuildTelemetryCard(Lang.T("temp.cpu"), "—", "⚡", CyanBrush, out _cpuTempVal, out _cpuTempBadge, out _cpuTempSrc);
+            var gpuCard = BuildTelemetryCard(Lang.T("temp.gpu"), "—", "🎮", GreenBrush, out _gpuTempVal, out _gpuTempBadge, out _gpuTempSrc);
+            var irCard = BuildTelemetryCard(Lang.T("temp.ir"), Lang.T("temp.ir.sub"), "🌡", OrangeBrush, out _irTempVal, out _irTempBadge, out irSrc);
 
             Grid.SetColumn(cpuCard, 0);
             Grid.SetColumn(gpuCard, 2);
@@ -1666,7 +1663,7 @@ namespace LegionFanControl
             return grid;
         }
 
-        private Border BuildTelemetryCard(string title, string subtitle, string icon, Brush iconColor, out TextBlock valText, out Border badge)
+        private Border BuildTelemetryCard(string title, string subtitle, string icon, Brush iconColor, out TextBlock valText, out Border badge, out TextBlock subText)
         {
             var sp = new StackPanel();
 
@@ -1716,13 +1713,14 @@ namespace LegionFanControl
             };
             sp.Children.Add(valText);
 
-            var subTb = new TextBlock
+            subText = new TextBlock
             {
                 Text = subtitle,
                 Foreground = TextMutedBrush,
-                FontSize = 10
+                FontSize = 10,
+                TextTrimming = TextTrimming.CharacterEllipsis
             };
-            sp.Children.Add(subTb);
+            sp.Children.Add(subText);
 
             badge = MakeCard(sp, margin: new Thickness(0), padding: new Thickness(14, 12, 14, 12));
             return badge;
@@ -1731,7 +1729,7 @@ namespace LegionFanControl
         private void SetTempBadge(TextBlock valText, Border wrapper, float? temp)
         {
             // MakeCard sarmalayici dondurur; cerceve asil icerik kartinda (Tag)
-            var card = wrapper.Tag as Border ?? wrapper;
+            var card = (Border)wrapper.Tag;
             if (!temp.HasValue || temp.Value <= 0)
             {
                 valText.Text = "—";
@@ -1829,26 +1827,64 @@ namespace LegionFanControl
             {
                 try
                 {
-                    string cpu = WmiSingle("Win32_Processor", "Name");
-                    var gpus = WmiMulti("Win32_VideoController", "Name");
-                    string model = WmiSingle("Win32_ComputerSystem", "Model");
-                    string ram = FormatRam();
-                    string bios = WmiSingle("Win32_BIOS", "SMBIOSBIOSVersion");
+                    var cpu = WmiSelect("SELECT Name, NumberOfCores, NumberOfLogicalProcessors FROM Win32_Processor", o => new
+                    {
+                        Name = Str(o["Name"]),
+                        Cores = Str(o["NumberOfCores"]),
+                        Threads = Str(o["NumberOfLogicalProcessors"])
+                    }).FirstOrDefault();
+                    var gpus = WmiSelect("SELECT Name, AdapterCompatibility FROM Win32_VideoController",
+                        o => GpuLabel(Str(o["AdapterCompatibility"])) + Str(o["Name"]));
+                    var ramModules = WmiSelect("SELECT Capacity, ConfiguredClockSpeed, Speed, SMBIOSMemoryType FROM Win32_PhysicalMemory", o => new
+                    {
+                        Bytes = Convert.ToDouble(o["Capacity"] ?? 0),
+                        Mhz = Str(Convert.ToUInt32(o["ConfiguredClockSpeed"] ?? 0u) > 0 ? o["ConfiguredClockSpeed"] : o["Speed"]),
+                        Type = MemoryTypeName(o["SMBIOSMemoryType"])
+                    });
+                    var sys = WmiSelect("SELECT Manufacturer, Model FROM Win32_ComputerSystem", o => new
+                    {
+                        Maker = Str(o["Manufacturer"]),
+                        Model = Str(o["Model"])
+                    }).FirstOrDefault();
+                    string productName = WmiSelect("SELECT Version FROM Win32_ComputerSystemProduct", o => Str(o["Version"])).FirstOrDefault();
+                    var bios = WmiSelect("SELECT SMBIOSBIOSVersion, ReleaseDate FROM Win32_BIOS", o => new
+                    {
+                        Version = Str(o["SMBIOSBIOSVersion"]),
+                        Date = Str(o["ReleaseDate"])
+                    }).FirstOrDefault();
+
+                    // Fan kontrolu gercekten erisilebilir mi, burada denetlenir
+                    string gameZone = TryConnectHardware() != null
+                        ? Lang.T("hw.gamezone.ok")
+                        : Lang.F("hw.gamezone.fail", _hwError);
+
+                    string cpuName = cpu != null ? cpu.Name : "—";
+                    string cpuExtra = cpu != null ? Lang.F("hw.cpu.cores", cpu.Cores, cpu.Threads) : null;
+                    string gpuInfo = gpus.Count > 0 ? string.Join("\n", gpus.ToArray()) : "—";
+                    double ramBytes = ramModules.Sum(m => m.Bytes);
+                    string ramType = ramModules.Select(m => m.Type).FirstOrDefault(t => t != null);
+                    string ram = ramBytes > 0
+                        ? string.Format("{0:0} GB", ramBytes / (1024.0 * 1024 * 1024)) + (ramType != null ? " " + ramType : "")
+                        : "—";
+                    string ramExtra = ramModules.Count > 0
+                        ? Lang.F("hw.ram.modules", ramModules.Count, ramModules[0].Mhz)
+                        : null;
+                    string model = !string.IsNullOrEmpty(productName) ? productName
+                        : sys != null ? sys.Maker + " " + sys.Model : "—";
+                    string modelExtra = sys != null && sys.Model != "" ? Lang.F("hw.model.type", sys.Model) : null;
+                    string biosText = bios == null ? "—"
+                        : bios.Date.Length >= 8
+                            ? bios.Version + " • " + bios.Date.Substring(6, 2) + "." + bios.Date.Substring(4, 2) + "." + bios.Date.Substring(0, 4)
+                            : bios.Version;
 
                     Dispatcher.BeginInvoke(new Action(() =>
                     {
                         _hwContainer.Children.Clear();
-
-                        _hwContainer.Children.Add(MakeSpecCard(Lang.T("hw.cpu"), cpu, "⚡", Lang.T("hw.cpu.extra")));
-
-                        string gpuInfo = string.Join("\n", gpus.Select((g, i) => (i == 0 ? Lang.T("hw.gpu.ext") : Lang.T("hw.gpu.int")) + g).ToArray());
-                        _hwContainer.Children.Add(MakeSpecCard(Lang.T("hw.gpu"), gpuInfo, "🎮", "NVIDIA GeForce & Intel HD Graphics"));
-
-                        _hwContainer.Children.Add(MakeSpecCard(Lang.T("hw.ram"), ram + " DDR4", "💾", Lang.T("hw.ram.extra")));
-
-                        _hwContainer.Children.Add(MakeSpecCard(Lang.T("hw.model"), "Lenovo " + model, "💻", Lang.T("hw.model.extra")));
-
-                        _hwContainer.Children.Add(MakeSpecCard(Lang.T("hw.bios"), Lang.F("hw.bios.value", bios), "⚙️", Lang.T("hw.bios.extra")));
+                        _hwContainer.Children.Add(MakeSpecCard(Lang.T("hw.cpu"), cpuName, "⚡", cpuExtra));
+                        _hwContainer.Children.Add(MakeSpecCard(Lang.T("hw.gpu"), gpuInfo, "🎮", null));
+                        _hwContainer.Children.Add(MakeSpecCard(Lang.T("hw.ram"), ram, "💾", ramExtra));
+                        _hwContainer.Children.Add(MakeSpecCard(Lang.T("hw.model"), model, "💻", modelExtra));
+                        _hwContainer.Children.Add(MakeSpecCard(Lang.T("hw.bios"), biosText, "⚙️", gameZone));
                     }));
                 }
                 catch (Exception ex)
@@ -1912,63 +1948,64 @@ namespace LegionFanControl
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(0, 2, 0, 2)
             });
-            sp.Children.Add(new TextBlock
+            if (!string.IsNullOrEmpty(extra))
             {
-                Text = extra,
-                Foreground = TextMutedBrush,
-                FontSize = 10
-            });
+                sp.Children.Add(new TextBlock
+                {
+                    Text = extra,
+                    Foreground = TextMutedBrush,
+                    FontSize = 10,
+                    TextWrapping = TextWrapping.Wrap
+                });
+            }
             Grid.SetColumn(sp, 1);
             grid.Children.Add(sp);
 
             return MakeCard(grid, padding: new Thickness(16, 12, 16, 12));
         }
 
-        private static string WmiSingle(string cls, string prop)
+        private static List<T> WmiSelect<T>(string query, Func<ManagementBaseObject, T> map)
         {
-            using (var s = new ManagementObjectSearcher("SELECT " + prop + " FROM " + cls))
+            var list = new List<T>();
+            using (var s = new ManagementObjectSearcher(query))
             using (var res = s.Get())
             {
-                foreach (ManagementObject mo in res)
+                foreach (ManagementBaseObject mo in res)
                 {
-                    var v = mo[prop];
-                    if (v != null) return v.ToString().Trim();
-                }
-            }
-            return "—";
-        }
-
-        private static List<string> WmiMulti(string cls, string prop)
-        {
-            var list = new List<string>();
-            using (var s = new ManagementObjectSearcher("SELECT " + prop + " FROM " + cls))
-            using (var res = s.Get())
-            {
-                foreach (ManagementObject mo in res)
-                {
-                    var v = mo[prop];
-                    if (v != null) list.Add(v.ToString().Trim());
+                    using (mo) list.Add(map(mo));
                 }
             }
             return list;
         }
 
-        private static string FormatRam()
+        private static string Str(object v)
         {
-            try
+            return v == null ? "" : v.ToString().Trim();
+        }
+
+        // Ekran kartini ureticisine gore harici/dahili olarak etiketler (liste sirasina guvenilmez)
+        private static string GpuLabel(string vendor)
+        {
+            if (vendor.IndexOf("Intel", StringComparison.OrdinalIgnoreCase) >= 0) return Lang.T("hw.gpu.int");
+            if (vendor.IndexOf("NVIDIA", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                vendor.IndexOf("Advanced Micro Devices", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                vendor.StartsWith("AMD", StringComparison.OrdinalIgnoreCase) ||
+                vendor.StartsWith("ATI ", StringComparison.OrdinalIgnoreCase)) return Lang.T("hw.gpu.ext");
+            return "";
+        }
+
+        // SMBIOS bellek tipi kodlari (SMBIOS 3.x, Tablo 76)
+        private static string MemoryTypeName(object code)
+        {
+            switch (code == null ? 0 : Convert.ToInt32(code))
             {
-                using (var s = new ManagementObjectSearcher("SELECT TotalPhysicalMemory FROM Win32_ComputerSystem"))
-                using (var res = s.Get())
-                {
-                    foreach (ManagementObject mo in res)
-                    {
-                        double bytes = Convert.ToDouble(mo["TotalPhysicalMemory"]);
-                        return string.Format("{0:0} GB", Math.Round(bytes / (1024.0 * 1024 * 1024)));
-                    }
-                }
+                case 20: return "DDR";
+                case 21: return "DDR2";
+                case 24: return "DDR3";
+                case 26: return "DDR4";
+                case 34: return "DDR5";
+                default: return null;
             }
-            catch { }
-            return "—";
         }
 
         // ---------------- 3. Sayfa: SİSTEM ARAÇLARI ----------------
@@ -2014,9 +2051,9 @@ namespace LegionFanControl
         // ---------------- Baslangicta Calistirma (Gorev Zamanlayici) ----------------
         private const string StartupTaskName = "LegionFanControl";
 
-        private static int RunSchtasks(string args, out string output)
+        // Ciktiyi dondurur; basarisizsa schtasks'in kendi hata mesajiyla istisna firlatir.
+        private static string RunSchtasks(string args)
         {
-            output = "";
             var p = Process.Start(new ProcessStartInfo
             {
                 FileName = "schtasks.exe",
@@ -2026,22 +2063,19 @@ namespace LegionFanControl
                 RedirectStandardOutput = true,
                 RedirectStandardError = true
             });
-            if (p == null) return -1;
             var errTask = p.StandardError.ReadToEndAsync();
-            output = p.StandardOutput.ReadToEnd();
+            string output = p.StandardOutput.ReadToEnd();
             p.WaitForExit();
-            errTask.Wait();
-            return p.ExitCode;
+            string err = errTask.Result.Trim();
+            if (p.ExitCode != 0)
+                throw new Exception(Lang.F("err.schtasks", err != "" ? err : p.ExitCode.ToString()));
+            return output;
         }
 
         // Gorev yoksa null, varsa gorevin XML tanimini dondurur.
         private static string QueryStartupTaskXml()
         {
-            try
-            {
-                string xml;
-                return RunSchtasks("/Query /TN \"" + StartupTaskName + "\" /XML", out xml) == 0 ? xml : null;
-            }
+            try { return RunSchtasks("/Query /TN \"" + StartupTaskName + "\" /XML"); }
             catch { return null; }
         }
 
@@ -2110,11 +2144,9 @@ namespace LegionFanControl
         // baslatmaz, pile gecince ve 72 saat sonra durdurur. Kurulum da bunu --register-startup ile cagirir.
         internal static void ApplyStartupTask(bool on)
         {
-            string output;
             if (!on)
             {
-                int del = RunSchtasks("/Delete /TN \"" + StartupTaskName + "\" /F", out output);
-                if (del != 0) throw new Exception(Lang.F("err.schtasks", del));
+                RunSchtasks("/Delete /TN \"" + StartupTaskName + "\" /F");
                 return;
             }
 
@@ -2131,15 +2163,6 @@ namespace LegionFanControl
                 "    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>\r\n" +
                 "    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>\r\n" +
                 "    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>\r\n" +
-                "    <AllowHardTerminate>true</AllowHardTerminate>\r\n" +
-                "    <StartWhenAvailable>false</StartWhenAvailable>\r\n" +
-                "    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>\r\n" +
-                "    <IdleSettings><StopOnIdleEnd>false</StopOnIdleEnd><RestartOnIdle>false</RestartOnIdle></IdleSettings>\r\n" +
-                "    <AllowStartOnDemand>true</AllowStartOnDemand>\r\n" +
-                "    <Enabled>true</Enabled>\r\n" +
-                "    <Hidden>false</Hidden>\r\n" +
-                "    <RunOnlyIfIdle>false</RunOnlyIfIdle>\r\n" +
-                "    <WakeToRun>false</WakeToRun>\r\n" +
                 "    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>\r\n" +
                 "  </Settings>\r\n" +
                 "  <Actions Context=\"Author\"><Exec>" +
@@ -2153,8 +2176,7 @@ namespace LegionFanControl
             try
             {
                 File.WriteAllText(tmp, xml, System.Text.Encoding.Unicode);
-                int code = RunSchtasks("/Create /TN \"" + StartupTaskName + "\" /XML \"" + tmp + "\" /F", out output);
-                if (code != 0) throw new Exception(Lang.F("err.schtasks", code));
+                RunSchtasks("/Create /TN \"" + StartupTaskName + "\" /XML \"" + tmp + "\" /F");
             }
             finally
             {
@@ -2213,7 +2235,7 @@ namespace LegionFanControl
 
         // ---------------- 4. Sayfa: HAKKINDA ----------------
         private const string GitHubUrl = "https://github.com/fatih5228/LegionFanControl";
-        public const string CurrentVersion = "2.6";
+        public const string CurrentVersion = "2.7";
         private const string GitHubLatestReleasePage = GitHubUrl + "/releases/latest";
         private const string GitHubApiLatestRelease = "https://api.github.com/repos/fatih5228/LegionFanControl/releases/latest";
 
@@ -2231,7 +2253,6 @@ namespace LegionFanControl
                 Margin = new Thickness(2, 0, 0, 12)
             });
 
-            // Uygulama Karti
             var appGrid = new Grid();
             appGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             appGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -2304,7 +2325,6 @@ namespace LegionFanControl
             appGrid.Children.Add(appStack);
             sp.Children.Add(MakeCard(appGrid));
 
-            // Gelistirici Karti
             var devStack = new StackPanel();
             devStack.Children.Add(new TextBlock
             {
@@ -2323,7 +2343,6 @@ namespace LegionFanControl
             });
             sp.Children.Add(MakeCard(devStack));
 
-            // GitHub Baglanti Karti
             var linkGrid = new Grid();
             linkGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             linkGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -2386,7 +2405,6 @@ namespace LegionFanControl
             linkGrid.Children.Add(linkStack);
             sp.Children.Add(MakeCard(linkGrid));
 
-            // Guncelleme Karti
             var updStack = new StackPanel();
             updStack.Children.Add(new TextBlock
             {
@@ -2611,6 +2629,7 @@ namespace LegionFanControl
                 string err = null;
                 float? lhmCpu = null, lhmGpu = null, effCpu = null;
                 string lhmNote = null;
+                string cpuSrc = "—", gpuSrc = "—";
                 FanHardware hw = null;
 
                 try
@@ -2633,6 +2652,9 @@ namespace LegionFanControl
 
                     // Ekranda ve otomatik modda ayni CPU degeri kullanilir: LHM, yoksa EC (WMI) CPU sensoru
                     effCpu = lhmCpu.HasValue ? lhmCpu : (cpuT > 0 ? (float?)cpuT : (float?)null);
+                    if (lhmCpu.HasValue) cpuSrc = Lang.F("temp.cpu.src.lhm", _lhm.CpuSensor);
+                    else if (cpuT > 0) cpuSrc = Lang.T("temp.cpu.src.ec");
+                    if (lhmGpu.HasValue && _lhm.GpuName != "") gpuSrc = _lhm.GpuName;
 
                     // Otomatik Mod Tetikleme
                     if (_autoMode && hw != null && err == null)
@@ -2678,6 +2700,8 @@ namespace LegionFanControl
                         SetBar(_fan2Bar, _fan2PctText, 0);
                         SetTempBadge(_cpuTempVal, _cpuTempBadge, null);
                         SetTempBadge(_gpuTempVal, _gpuTempBadge, null);
+                        _cpuTempSrc.Text = "—";
+                        _gpuTempSrc.Text = "—";
                         SetTempBadge(_irTempVal, _irTempBadge, null);
                         UpdateTrayInfo(null, null, 0, 0);
                         return;
@@ -2691,6 +2715,8 @@ namespace LegionFanControl
 
                     SetTempBadge(_cpuTempVal, _cpuTempBadge, effCpu);
                     SetTempBadge(_gpuTempVal, _gpuTempBadge, lhmGpu);
+                    _cpuTempSrc.Text = cpuSrc;
+                    _gpuTempSrc.Text = gpuSrc;
                     SetTempBadge(_irTempVal, _irTempBadge, irT > 0 ? (float?)irT : (float?)null);
                     UpdateTrayInfo(effCpu, lhmGpu, fan1, fan2);
 
@@ -2713,9 +2739,9 @@ namespace LegionFanControl
             if (manual && _updateStatusText != null)
                 _updateStatusText.Text = Lang.T("update.checking");
 
-            _updateRetries = 0;
             System.Threading.Tasks.Task.Run(() =>
             {
+                int retries = 0;
                 string tag = null;
                 string pageUrl = GitHubLatestReleasePage;
                 bool failed;
@@ -2745,8 +2771,7 @@ namespace LegionFanControl
 
                     // Acilista ag henuz hazir olmayabilir; otomatik denetimde biraz bekleyip tekrar dene
                     if (!failed || manual) break;
-                    _updateRetries++;
-                    if (_updateRetries > 3) break;
+                    if (++retries > 3) break;
                     System.Threading.Thread.Sleep(TimeSpan.FromSeconds(30));
                 }
 
@@ -2809,16 +2834,8 @@ namespace LegionFanControl
         // kabuk oturumunda varsayilan tarayiciyla acilir.
         private static void OpenUrl(string url)
         {
-            if (string.IsNullOrEmpty(url) ||
-                !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) return;
-            try
-            {
-                Process.Start(new ProcessStartInfo("explorer.exe", "\"" + url + "\"") { UseShellExecute = false });
-            }
-            catch
-            {
-                try { Process.Start(url); } catch { }
-            }
+            try { Process.Start(new ProcessStartInfo("explorer.exe", "\"" + url + "\"") { UseShellExecute = false }); }
+            catch { }
         }
 
         private static bool IsNewerVersion(string tag)
@@ -2884,7 +2901,8 @@ namespace LegionFanControl
             _tray.ContextMenuStrip = menu;
         }
 
-        private void ShowWindow()
+        // Tepsiden ve ikinci bir instance baslatildiginda pencereyi one getirir
+        public void ShowWindow()
         {
             Show();
             WindowState = WindowState.Normal;
@@ -2892,12 +2910,6 @@ namespace LegionFanControl
             Topmost = true;
             Topmost = false;
             Focus();
-        }
-
-        // Ikinci bir instance baslatildiginda mevcut pencereyi one getirir.
-        public void RequestShow()
-        {
-            ShowWindow();
         }
 
         private void RealExit()
@@ -2989,7 +3001,7 @@ namespace LegionFanControl
                 while (true)
                 {
                     _showEvent.WaitOne();
-                    try { win.Dispatcher.BeginInvoke(new Action(win.RequestShow)); }
+                    try { win.Dispatcher.BeginInvoke(new Action(win.ShowWindow)); }
                     catch { break; }
                 }
             }) { IsBackground = true };
