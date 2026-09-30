@@ -48,6 +48,11 @@ namespace LegionFanControl
             { "status.lastupdate",  "Son güncelleme: {0}" },
             { "status.connerror",   "Bağlantı hatası: {0}" },
             { "status.error",       "Hata: {0}" },
+            { "status.noconn",      "Bağlantı yok" },
+            { "err.nogamezone",     "LENOVO_GAMEZONE_DATA bulunamadı" },
+            { "err.noresponse",     "{0} yanıt vermedi" },
+            { "err.lhm",            "LHM açılamadı: {0}" },
+            { "err.schtasks",       "schtasks hata kodu: {0}" },
 
             { "hero.desc.manual",   "Maksimum fan devri (3700+ RPM) ile anında yüksek soğutma" },
             { "hero.desc.auto",     "Otomatik mod devrede • Manuel kontrol kilitlendi" },
@@ -55,6 +60,7 @@ namespace LegionFanControl
             { "hero.status.on",     "● Extreme Cooling Aktif - Maksimum Fan Devri Devrede" },
             { "hero.status.off",    "○ Standart Fan Eğrisi Devrede" },
             { "hero.hotkey",        "Kısayol: Ctrl+Alt+F → Extreme Cooling aç/kapat" },
+            { "hero.hotkey.fail",   "Ctrl+Alt+F kısayolu kaydedilemedi (başka bir uygulama kullanıyor)" },
 
             { "auto.title",         "OTOMATİK FAN KONTROLÜ" },
             { "auto.desc",          "İşlemci sıcaklığı eşiğe ulaştığında Extreme Cooling otomatik açılır" },
@@ -100,7 +106,7 @@ namespace LegionFanControl
             { "startup.fail",       "Başlangıç ayarı değiştirilemedi: {0}" },
 
             { "about.title",        "HAKKINDA" },
-            { "about.version",      "Sürüm 2.5 • .NET Framework (WPF)" },
+            { "about.version",      "Sürüm {0} • .NET Framework (WPF)" },
             { "about.desc",         "Lenovo Legion Y520 için Extreme Cooling, otomatik fan kontrolü ve oyun araçları." },
             { "about.dev",          "GELİŞTİRİCİ" },
             { "about.gh",           "KAYNAK KOD & GÜNCELLEMELER" },
@@ -145,6 +151,11 @@ namespace LegionFanControl
             { "status.lastupdate",  "Last update: {0}" },
             { "status.connerror",   "Connection error: {0}" },
             { "status.error",       "Error: {0}" },
+            { "status.noconn",      "Not connected" },
+            { "err.nogamezone",     "LENOVO_GAMEZONE_DATA not found" },
+            { "err.noresponse",     "{0} did not respond" },
+            { "err.lhm",            "Could not open LHM: {0}" },
+            { "err.schtasks",       "schtasks error code: {0}" },
 
             { "hero.desc.manual",   "Instant high cooling with maximum fan speed (3700+ RPM)" },
             { "hero.desc.auto",     "Auto mode active • Manual control locked" },
@@ -152,6 +163,7 @@ namespace LegionFanControl
             { "hero.status.on",     "● Extreme Cooling Active - Maximum Fan Speed Engaged" },
             { "hero.status.off",    "○ Standard Fan Curve Active" },
             { "hero.hotkey",        "Shortcut: Ctrl+Alt+F → Toggle Extreme Cooling" },
+            { "hero.hotkey.fail",   "Could not register the Ctrl+Alt+F shortcut (used by another app)" },
 
             { "auto.title",         "AUTOMATIC FAN CONTROL" },
             { "auto.desc",          "Extreme Cooling turns on automatically when CPU temperature reaches the threshold" },
@@ -197,7 +209,7 @@ namespace LegionFanControl
             { "startup.fail",       "Could not change startup setting: {0}" },
 
             { "about.title",        "ABOUT" },
-            { "about.version",      "Version 2.5 • .NET Framework (WPF)" },
+            { "about.version",      "Version {0} • .NET Framework (WPF)" },
             { "about.desc",         "Extreme Cooling, automatic fan control and gaming tools for Lenovo Legion Y520." },
             { "about.dev",          "DEVELOPER" },
             { "about.gh",           "SOURCE CODE & UPDATES" },

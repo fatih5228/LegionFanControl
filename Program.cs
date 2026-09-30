@@ -22,6 +22,14 @@ using Forms = System.Windows.Forms;
 using Drawing = System.Drawing;
 using LibreHardwareMonitor.Hardware;
 
+// Surum yalnizca MainWindow.CurrentVersion'da tutulur; exe'nin dosya surumu ve
+// kurulum betigi (kurulum.iss) buradan okur.
+[assembly: System.Reflection.AssemblyTitle("Legion Y520 Fan Kontrol")]
+[assembly: System.Reflection.AssemblyProduct("Legion Y520 Fan Kontrol")]
+[assembly: System.Reflection.AssemblyVersion(LegionFanControl.MainWindow.CurrentVersion + ".0.0")]
+[assembly: System.Reflection.AssemblyFileVersion(LegionFanControl.MainWindow.CurrentVersion + ".0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersion(LegionFanControl.MainWindow.CurrentVersion)]
+
 namespace LegionFanControl
 {
     // ---------------- WMI: LENOVO_GAMEZONE_DATA ----------------
@@ -34,7 +42,7 @@ namespace LegionFanControl
             var mc = new ManagementClass(@"root\wmi:LENOVO_GAMEZONE_DATA");
             var instances = mc.GetInstances();
             if (instances == null || instances.Count == 0)
-                throw new Exception("LENOVO_GAMEZONE_DATA bulunamadi");
+                throw new Exception(Lang.T("err.nogamezone"));
             foreach (ManagementObject mo in instances) { _instance = mo; break; }
         }
 
@@ -51,7 +59,7 @@ namespace LegionFanControl
             {
                 result = _instance.InvokeMethod(method, null, null);
             }
-            if (result == null) throw new Exception(method + " cevapsiz");
+            if (result == null) throw new Exception(Lang.F("err.noresponse", method));
             var d = result.Properties["Data"];
             return d == null ? 0u : Convert.ToUInt32(d.Value);
         }
@@ -99,7 +107,7 @@ namespace LegionFanControl
             }
             catch (Exception ex)
             {
-                CpuNote = "LHM acilamadi: " + ex.GetType().Name;
+                CpuNote = Lang.F("err.lhm", ex.GetType().Name);
                 _computer = null;
             }
         }
@@ -315,6 +323,7 @@ namespace LegionFanControl
         private ModernSwitch _extremeSwitch;
         private TextBlock _heroStatusBadge;
         private TextBlock _heroDescText;
+        private TextBlock _heroHotkeyText;
         private ModernSwitch _autoSwitch;
         private Slider _thresholdSlider;
         private TextBlock _thresholdValue;
@@ -326,6 +335,7 @@ namespace LegionFanControl
         // Otomatik Mod Durumu
         private bool _autoMode;
         private int _threshold = 70;
+        private const int ThresholdMin = 50, ThresholdMax = 95;
         private bool _loadingSettings;
 
         // Sayfalar ve Durum
@@ -346,16 +356,20 @@ namespace LegionFanControl
         private DispatcherTimer _timer;
         private bool _polling;
         private bool _realExit;
-        private FanHardware _hw;
+        // Arka plan gorevleri _hw'yi yerel degiskene alarak kullanir; baglanti kilitle kurulur
+        private volatile FanHardware _hw;
+        private readonly object _hwLock = new object();
         private string _hwError;
+        // Extreme Cooling'i otomatik mod mu acti (otomatik mod kapatilinca geri almak icin)
+        private volatile bool _autoTriggered;
         private readonly LhmMonitor _lhm = new LhmMonitor();
 
-        private readonly bool _startedInTray;
         private Forms.NotifyIcon _tray;
         private string _latestReleaseUrl;
         private string _updateTag;
         private int _updateRetries;
         private Border _updateBanner;
+        private bool _updateBannerDismissed;
         private TextBlock _updateStatusText, _updateDownloadTb;
         private System.Windows.Documents.Run _updateDownloadRun, _updateBannerRun;
         private Forms.ToolStripMenuItem _trayToggleItem, _trayShowItem, _trayExitItem;
@@ -364,10 +378,6 @@ namespace LegionFanControl
 
         public MainWindow()
         {
-            _startedInTray = Environment.GetCommandLineArgs().Skip(1)
-                .Any(a => string.Equals(a, "--tray", StringComparison.OrdinalIgnoreCase)
-                       || string.Equals(a, "-tray", StringComparison.OrdinalIgnoreCase));
-
             Title = Lang.T("app.title");
             Width = 840; Height = 670;
             WindowStyle = WindowStyle.None;
@@ -395,8 +405,13 @@ namespace LegionFanControl
             SelectPage(0);
             LoadHardwareInfo();
             RefreshSysStates();
-            EnsureStartupTaskTrayArg();
+            RefreshStartupState();
+            EnsureStartupTaskUpToDate();
             CheckForUpdates(false);
+
+            // Tepsiden (--tray) baslayinca pencere hic gosterilmez; pencere tanitici
+            // simdi olusturulur ki OnSourceInitialized calissin ve Ctrl+Alt+F kaydedilsin.
+            new System.Windows.Interop.WindowInteropHelper(this).EnsureHandle();
 
             _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
             _timer.Tick += (s, e) => Poll();
@@ -446,24 +461,41 @@ namespace LegionFanControl
             catch { }
         }
 
-        private void TryConnectHardware()
+        // Birden fazla is parcacigindan cagrilabilir; baglanti yoksa kurar ve mevcut nesneyi dondurur.
+        private FanHardware TryConnectHardware()
         {
-            try
+            lock (_hwLock)
             {
-                _hw = new FanHardware();
-                _hwError = null;
+                if (_hw != null) return _hw;
                 try
                 {
-                    uint m = _hw.GetFanMaxSpeed();
-                    if (m >= 500 && m <= 10000) MaxRpm = m;
+                    var hw = new FanHardware();
+                    try
+                    {
+                        uint m = hw.GetFanMaxSpeed();
+                        if (m >= 500 && m <= 10000) MaxRpm = m;
+                    }
+                    catch { }
+                    _hwError = null;
+                    _hw = hw;
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    _hwError = ex.Message;
+                }
+                return _hw;
             }
-            catch (Exception ex)
+        }
+
+        // Hata veren baglantiyi birakir; bu arada baska bir baglanti kurulduysa ona dokunmaz.
+        private void DropHardware(FanHardware hw)
+        {
+            if (hw == null) return;
+            lock (_hwLock)
             {
-                _hw = null;
-                _hwError = ex.Message;
+                if (_hw == hw) _hw = null;
             }
+            try { hw.Dispose(); } catch { }
         }
 
         private static string SettingsPath { get { return IOPath.Combine(BaseDir, "ayarlar.ini"); } }
@@ -488,7 +520,7 @@ namespace LegionFanControl
                         {
                             int t;
                             if (int.TryParse(val, out t))
-                                _threshold = Math.Max(30, Math.Min(95, t));
+                                _threshold = Math.Max(ThresholdMin, Math.Min(ThresholdMax, t));
                         }
                         else if (key == "Language")
                         {
@@ -525,6 +557,7 @@ namespace LegionFanControl
         private const int HotkeyId = 0x51F4;
         private const uint ModControl = 0x0002, ModAlt = 0x0001, KeyF = 0x46;
         private IntPtr _hwnd = IntPtr.Zero;
+        private bool? _hotkeyOk; // null: henuz denenmedi
 
         protected override void OnSourceInitialized(EventArgs e)
         {
@@ -543,9 +576,18 @@ namespace LegionFanControl
                 // Global kisayol: Ctrl+Alt+F -> Extreme Cooling ac/kapat
                 var src = System.Windows.Interop.HwndSource.FromHwnd(helper.Handle);
                 if (src != null) src.AddHook(WndProc);
-                RegisterHotKey(helper.Handle, HotkeyId, ModControl | ModAlt, KeyF);
+                _hotkeyOk = RegisterHotKey(helper.Handle, HotkeyId, ModControl | ModAlt, KeyF);
             }
-            catch { }
+            catch { _hotkeyOk = false; }
+            UpdateHotkeyHint();
+        }
+
+        private void UpdateHotkeyHint()
+        {
+            if (_heroHotkeyText == null) return;
+            bool failed = _hotkeyOk == false;
+            _heroHotkeyText.Text = Lang.T(failed ? "hero.hotkey.fail" : "hero.hotkey");
+            _heroHotkeyText.Foreground = failed ? OrangeBrush : TextMutedBrush;
         }
 
         private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
@@ -639,7 +681,7 @@ namespace LegionFanControl
             {
                 if (_latestReleaseUrl != null)
                 {
-                    try { Process.Start(_latestReleaseUrl); } catch { }
+                    OpenUrl(_latestReleaseUrl);
                 }
             };
             bannerTb.Inlines.Add(bannerLink);
@@ -665,6 +707,7 @@ namespace LegionFanControl
             {
                 e.Handled = true;
                 _updateBanner.Visibility = Visibility.Collapsed;
+                _updateBannerDismissed = true;
             };
             Grid.SetColumn(dismiss, 1);
             bannerGrid.Children.Add(dismiss);
@@ -1239,13 +1282,15 @@ namespace LegionFanControl
                 Margin = new Thickness(0, 2, 0, 0)
             };
             textStack.Children.Add(_heroDescText);
-            textStack.Children.Add(new TextBlock
+            _heroHotkeyText = new TextBlock
             {
                 Text = Lang.T("hero.hotkey"),
                 Foreground = TextMutedBrush,
                 FontSize = 10,
                 Margin = new Thickness(0, 3, 0, 0)
-            });
+            };
+            textStack.Children.Add(_heroHotkeyText);
+            UpdateHotkeyHint();
             topRow.Children.Add(textStack);
 
             // Switch
@@ -1365,8 +1410,8 @@ namespace LegionFanControl
 
             _thresholdSlider = new Slider
             {
-                Minimum = 50,
-                Maximum = 95,
+                Minimum = ThresholdMin,
+                Maximum = ThresholdMax,
                 TickFrequency = 1,
                 IsSnapToTickEnabled = true,
                 Value = _threshold,
@@ -1676,8 +1721,10 @@ namespace LegionFanControl
             return badge;
         }
 
-        private void SetTempBadge(TextBlock valText, Border card, float? temp)
+        private void SetTempBadge(TextBlock valText, Border wrapper, float? temp)
         {
+            // MakeCard sarmalayici dondurur; cerceve asil icerik kartinda (Tag)
+            var card = wrapper.Tag as Border ?? wrapper;
             if (!temp.HasValue || temp.Value <= 0)
             {
                 valText.Text = "—";
@@ -1708,8 +1755,14 @@ namespace LegionFanControl
 
         private void SetAutoMode(bool on)
         {
+            bool turnedOff = _autoMode && !on;
             _autoMode = on;
             _autoSwitch.SetCheckedQuietly(on);
+
+            // Otomatik modun actigi Extreme Cooling, mod kapatilinca acik kalmasin
+            if (turnedOff && _autoTriggered && _extremeSwitch != null && _extremeSwitch.IsChecked)
+                ToggleCooling(false);
+            if (!on) _autoTriggered = false;
 
             if (_extremeSwitch != null)
             {
@@ -1946,7 +1999,6 @@ namespace LegionFanControl
                 Lang.T("sys.startup.title"),
                 Lang.T("sys.startup.desc"),
                 "🚀", _startupSwitch));
-            _startupSwitch.SetCheckedQuietly(IsStartupEnabled());
 
             page.Children.Add(sp);
             return page;
@@ -1955,58 +2007,9 @@ namespace LegionFanControl
         // ---------------- Baslangicta Calistirma (Gorev Zamanlayici) ----------------
         private const string StartupTaskName = "LegionFanControl";
 
-        private static bool IsStartupEnabled()
+        private static int RunSchtasks(string args, out string output)
         {
-            try
-            {
-                var p = Process.Start(new ProcessStartInfo
-                {
-                    FileName = "schtasks.exe",
-                    Arguments = "/Query /TN \"" + StartupTaskName + "\"",
-                    CreateNoWindow = true,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
-                });
-                if (p == null) return false;
-                p.WaitForExit();
-                return p.ExitCode == 0;
-            }
-            catch { return false; }
-        }
-
-        private void ToggleStartup(bool on)
-        {
-            try
-            {
-                ApplyStartupTask(on);
-                SetStatus(on ? Lang.T("startup.on") : Lang.T("startup.off"), false);
-            }
-            catch (Exception ex)
-            {
-                _startupSwitch.SetCheckedQuietly(IsStartupEnabled());
-                SetStatus(Lang.F("startup.fail", ex.Message), true);
-            }
-        }
-
-        // Baslangic gorevi aciksa ve uygulama tray'den baslatilmadiysa,
-        // gorevi --tray argumaniyla yeniden kaydeder (eski kayitlari gunceller).
-        private void EnsureStartupTaskTrayArg()
-        {
-            if (_startedInTray) return;
-            try
-            {
-                if (IsStartupEnabled()) ApplyStartupTask(true);
-            }
-            catch { }
-        }
-
-        private static void ApplyStartupTask(bool on)
-        {
-            string exe = typeof(MainWindow).Assembly.Location;
-            string args = on
-                ? "/Create /TN \"" + StartupTaskName + "\" /TR \"\\\"" + exe + "\\\" --tray\" /SC ONLOGON /RL HIGHEST /F"
-                : "/Delete /TN \"" + StartupTaskName + "\" /F";
+            output = "";
             var p = Process.Start(new ProcessStartInfo
             {
                 FileName = "schtasks.exe",
@@ -2016,10 +2019,139 @@ namespace LegionFanControl
                 RedirectStandardOutput = true,
                 RedirectStandardError = true
             });
-            if (p != null)
+            if (p == null) return -1;
+            var errTask = p.StandardError.ReadToEndAsync();
+            output = p.StandardOutput.ReadToEnd();
+            p.WaitForExit();
+            errTask.Wait();
+            return p.ExitCode;
+        }
+
+        // Gorev yoksa null, varsa gorevin XML tanimini dondurur.
+        private static string QueryStartupTaskXml()
+        {
+            try
             {
-                p.WaitForExit();
-                if (p.ExitCode != 0) throw new Exception("schtasks hata kodu: " + p.ExitCode);
+                string xml;
+                return RunSchtasks("/Query /TN \"" + StartupTaskName + "\" /XML", out xml) == 0 ? xml : null;
+            }
+            catch { return null; }
+        }
+
+        private static bool IsStartupEnabled()
+        {
+            return QueryStartupTaskXml() != null;
+        }
+
+        private void RefreshStartupState()
+        {
+            Task.Run(() =>
+            {
+                bool on = IsStartupEnabled();
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    if (_startupSwitch != null) _startupSwitch.SetCheckedQuietly(on);
+                }));
+            });
+        }
+
+        private void ToggleStartup(bool on)
+        {
+            if (_startupSwitch != null) _startupSwitch.IsEnabled = false;
+            Task.Run(() =>
+            {
+                string err = null;
+                try { ApplyStartupTask(on); }
+                catch (Exception ex) { err = ex.Message; }
+                bool now = IsStartupEnabled();
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    if (_startupSwitch != null)
+                    {
+                        _startupSwitch.IsEnabled = true;
+                        _startupSwitch.SetCheckedQuietly(now);
+                    }
+                    if (err == null) SetStatus(on ? Lang.T("startup.on") : Lang.T("startup.off"), false);
+                    else SetStatus(Lang.F("startup.fail", err), true);
+                }));
+            });
+        }
+
+        // Baslangic gorevi aciksa ve eski ayarlarla (pilde baslamayan, 3 gunde durdurulan,
+        // --tray'siz veya baska bir exe yolunu gosteren) kaydedildiyse yeniden kaydeder.
+        private void EnsureStartupTaskUpToDate()
+        {
+            Task.Run(() =>
+            {
+                try
+                {
+                    string xml = QueryStartupTaskXml();
+                    if (xml == null) return;
+                    string exe = typeof(MainWindow).Assembly.Location;
+                    bool upToDate =
+                        xml.IndexOf("<DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                        xml.IndexOf("<ExecutionTimeLimit>PT0S</ExecutionTimeLimit>", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                        xml.IndexOf("--tray", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                        xml.IndexOf(exe, StringComparison.OrdinalIgnoreCase) >= 0;
+                    if (!upToDate) ApplyStartupTask(true);
+                }
+                catch { }
+            });
+        }
+
+        // Gorev XML ile kaydedilir: schtasks /SC ONLOGON varsayilanlari gorevi pildeyken
+        // baslatmaz, pile gecince ve 72 saat sonra durdurur. Kurulum da bunu --register-startup ile cagirir.
+        internal static void ApplyStartupTask(bool on)
+        {
+            string output;
+            if (!on)
+            {
+                int del = RunSchtasks("/Delete /TN \"" + StartupTaskName + "\" /F", out output);
+                if (del != 0) throw new Exception(Lang.F("err.schtasks", del));
+                return;
+            }
+
+            string exe = typeof(MainWindow).Assembly.Location;
+            string user = System.Security.Principal.WindowsIdentity.GetCurrent().User.Value;
+            string xml =
+                "<?xml version=\"1.0\" encoding=\"UTF-16\"?>\r\n" +
+                "<Task version=\"1.2\" xmlns=\"http://schemas.microsoft.com/windows/2004/02/mit/task\">\r\n" +
+                "  <RegistrationInfo><Description>Legion Y520 Fan Kontrol</Description></RegistrationInfo>\r\n" +
+                "  <Triggers><LogonTrigger><Enabled>true</Enabled><UserId>" + user + "</UserId></LogonTrigger></Triggers>\r\n" +
+                "  <Principals><Principal id=\"Author\"><UserId>" + user + "</UserId>" +
+                "<LogonType>InteractiveToken</LogonType><RunLevel>HighestAvailable</RunLevel></Principal></Principals>\r\n" +
+                "  <Settings>\r\n" +
+                "    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>\r\n" +
+                "    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>\r\n" +
+                "    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>\r\n" +
+                "    <AllowHardTerminate>true</AllowHardTerminate>\r\n" +
+                "    <StartWhenAvailable>false</StartWhenAvailable>\r\n" +
+                "    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>\r\n" +
+                "    <IdleSettings><StopOnIdleEnd>false</StopOnIdleEnd><RestartOnIdle>false</RestartOnIdle></IdleSettings>\r\n" +
+                "    <AllowStartOnDemand>true</AllowStartOnDemand>\r\n" +
+                "    <Enabled>true</Enabled>\r\n" +
+                "    <Hidden>false</Hidden>\r\n" +
+                "    <RunOnlyIfIdle>false</RunOnlyIfIdle>\r\n" +
+                "    <WakeToRun>false</WakeToRun>\r\n" +
+                "    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>\r\n" +
+                "  </Settings>\r\n" +
+                "  <Actions Context=\"Author\"><Exec>" +
+                "<Command>" + System.Security.SecurityElement.Escape(exe) + "</Command>" +
+                "<Arguments>--tray</Arguments>" +
+                "<WorkingDirectory>" + System.Security.SecurityElement.Escape(IOPath.GetDirectoryName(exe)) + "</WorkingDirectory>" +
+                "</Exec></Actions>\r\n" +
+                "</Task>\r\n";
+
+            string tmp = IOPath.Combine(IOPath.GetTempPath(), "LegionFanControl_task_" + Guid.NewGuid().ToString("N") + ".xml");
+            try
+            {
+                File.WriteAllText(tmp, xml, System.Text.Encoding.Unicode);
+                int code = RunSchtasks("/Create /TN \"" + StartupTaskName + "\" /XML \"" + tmp + "\" /F", out output);
+                if (code != 0) throw new Exception(Lang.F("err.schtasks", code));
+            }
+            finally
+            {
+                try { File.Delete(tmp); } catch { }
             }
         }
 
@@ -2039,6 +2171,8 @@ namespace LegionFanControl
             SelectPage(page < 0 ? 0 : page);
             LoadHardwareInfo();
             RefreshSysStates();
+            RefreshStartupState();
+            ShowUpdateAvailable();
             UpdateTrayLanguage();
             Poll();
         }
@@ -2072,7 +2206,7 @@ namespace LegionFanControl
 
         // ---------------- 4. Sayfa: HAKKINDA ----------------
         private const string GitHubUrl = "https://github.com/fatih5228/LegionFanControl";
-        public const string CurrentVersion = "2.5";
+        public const string CurrentVersion = "2.6";
         private const string GitHubLatestReleasePage = GitHubUrl + "/releases/latest";
         private const string GitHubApiLatestRelease = "https://api.github.com/repos/fatih5228/LegionFanControl/releases/latest";
 
@@ -2146,7 +2280,7 @@ namespace LegionFanControl
             });
             appStack.Children.Add(new TextBlock
             {
-                Text = Lang.T("about.version"),
+                Text = Lang.F("about.version", CurrentVersion),
                 Foreground = TextSecondary,
                 FontSize = 11,
                 Margin = new Thickness(0, 2, 0, 0)
@@ -2230,7 +2364,7 @@ namespace LegionFanControl
             };
             link.RequestNavigate += (s, e) =>
             {
-                try { Process.Start(e.Uri.AbsoluteUri); } catch { }
+                OpenUrl(e.Uri.AbsoluteUri);
             };
             linkTb.Inlines.Add(link);
             linkStack.Children.Add(linkTb);
@@ -2295,7 +2429,7 @@ namespace LegionFanControl
             {
                 if (_latestReleaseUrl != null)
                 {
-                    try { Process.Start(_latestReleaseUrl); } catch { }
+                    OpenUrl(_latestReleaseUrl);
                 }
             };
             _updateDownloadTb.Inlines.Add(dlLink);
@@ -2368,11 +2502,11 @@ namespace LegionFanControl
                 bool? winKey = null, tp = null;
                 try
                 {
-                    if (_hw == null) TryConnectHardware();
-                    if (_hw != null)
+                    var hw = TryConnectHardware();
+                    if (hw != null)
                     {
-                        winKey = _hw.GetWinKeyLock();
-                        tp = _hw.GetTouchpadLock();
+                        winKey = hw.GetWinKeyLock();
+                        tp = hw.GetTouchpadLock();
                     }
                 }
                 catch { }
@@ -2386,19 +2520,16 @@ namespace LegionFanControl
 
         private void ToggleLock(bool winKey, bool targetState)
         {
-            if (_hw == null)
-            {
-                TryConnectHardware();
-                if (_hw == null) { SetStatus(Lang.F("status.connerror", _hwError), true); return; }
-            }
+            var hw = TryConnectHardware();
+            if (hw == null) { SetStatus(Lang.F("status.connerror", _hwError), true); return; }
             Task.Run(() =>
             {
                 try
                 {
-                    if (winKey) _hw.SetWinKeyLock(targetState);
-                    else _hw.SetTouchpadLock(targetState);
+                    if (winKey) hw.SetWinKeyLock(targetState);
+                    else hw.SetTouchpadLock(targetState);
 
-                    bool now = winKey ? _hw.GetWinKeyLock() : _hw.GetTouchpadLock();
+                    bool now = winKey ? hw.GetWinKeyLock() : hw.GetTouchpadLock();
                     Dispatcher.BeginInvoke(new Action(() =>
                     {
                         if (winKey && _winKeySwitch != null) _winKeySwitch.SetCheckedQuietly(now);
@@ -2416,17 +2547,15 @@ namespace LegionFanControl
         private void ToggleCooling(bool on)
         {
             if (_autoMode) { SetStatus(Lang.T("auto.locked"), false); return; }
-            if (_hw == null)
-            {
-                TryConnectHardware();
-                if (_hw == null) { SetStatus(Lang.F("status.connerror", _hwError), true); return; }
-            }
+            var hw = TryConnectHardware();
+            if (hw == null) { SetStatus(Lang.F("status.connerror", _hwError), true); return; }
             Task.Run(() =>
             {
                 try
                 {
-                    _hw.SetFanCooling(on);
-                    bool now = _hw.GetFanCoolingStatus();
+                    hw.SetFanCooling(on);
+                    _autoTriggered = false;
+                    bool now = hw.GetFanCoolingStatus();
                     Dispatcher.BeginInvoke(new Action(() => ApplyCoolingState(now)));
                 }
                 catch (Exception ex)
@@ -2473,42 +2602,48 @@ namespace LegionFanControl
                 uint fan1 = 0, fan2 = 0, cpuT = 0, irT = 0;
                 bool cooling = false;
                 string err = null;
-                float? lhmCpu = null, lhmGpu = null;
+                float? lhmCpu = null, lhmGpu = null, effCpu = null;
                 string lhmNote = null;
+                FanHardware hw = null;
 
                 try
                 {
-                    if (_hw == null) TryConnectHardware();
-                    if (_hw == null)
+                    hw = TryConnectHardware();
+                    if (hw == null)
                     {
-                        err = _hwError ?? "Bağlantı yok";
+                        err = _hwError ?? Lang.T("status.noconn");
                     }
                     else
                     {
-                        fan1 = _hw.GetFan1Speed();
-                        fan2 = _hw.GetFan2Speed();
-                        cooling = _hw.GetFanCoolingStatus();
-                        cpuT = _hw.GetCPUTemp();
-                        irT = _hw.GetIRTemp();
+                        fan1 = hw.GetFan1Speed();
+                        fan2 = hw.GetFan2Speed();
+                        cooling = hw.GetFanCoolingStatus();
+                        cpuT = hw.GetCPUTemp();
+                        irT = hw.GetIRTemp();
                     }
 
                     _lhm.ReadTemps(out lhmCpu, out lhmGpu);
 
+                    // Ekranda ve otomatik modda ayni CPU degeri kullanilir: LHM, yoksa EC (WMI) CPU sensoru
+                    effCpu = lhmCpu.HasValue ? lhmCpu : (cpuT > 0 ? (float?)cpuT : (float?)null);
+
                     // Otomatik Mod Tetikleme
-                    if (_autoMode && _hw != null && err == null)
+                    if (_autoMode && hw != null && err == null)
                     {
-                        float? refTemp = lhmCpu.HasValue ? lhmCpu : (irT > 0 ? (float?)irT : (float?)null);
+                        float? refTemp = effCpu.HasValue ? effCpu : (irT > 0 ? (float?)irT : (float?)null);
                         if (refTemp.HasValue)
                         {
                             if (!cooling && refTemp.Value >= _threshold)
                             {
-                                _hw.SetFanCooling(true);
-                                cooling = _hw.GetFanCoolingStatus();
+                                hw.SetFanCooling(true);
+                                cooling = hw.GetFanCoolingStatus();
+                                if (cooling) _autoTriggered = true;
                             }
                             else if (cooling && refTemp.Value <= _threshold - 5)
                             {
-                                _hw.SetFanCooling(false);
-                                cooling = _hw.GetFanCoolingStatus();
+                                hw.SetFanCooling(false);
+                                cooling = hw.GetFanCoolingStatus();
+                                if (!cooling) _autoTriggered = false;
                             }
                         }
                     }
@@ -2521,7 +2656,7 @@ namespace LegionFanControl
                 catch (Exception ex)
                 {
                     err = ex.Message;
-                    _hw = null;
+                    DropHardware(hw);
                 }
 
                 Dispatcher.BeginInvoke(new Action(() =>
@@ -2532,6 +2667,8 @@ namespace LegionFanControl
                         SetStatus(Lang.F("status.connerror", err), true);
                         _fan1RpmText.Text = "— RPM";
                         _fan2RpmText.Text = "— RPM";
+                        SetBar(_fan1Bar, _fan1PctText, 0);
+                        SetBar(_fan2Bar, _fan2PctText, 0);
                         SetTempBadge(_cpuTempVal, _cpuTempBadge, null);
                         SetTempBadge(_gpuTempVal, _gpuTempBadge, null);
                         SetTempBadge(_irTempVal, _irTempBadge, null);
@@ -2545,7 +2682,6 @@ namespace LegionFanControl
                     SetBar(_fan1Bar, _fan1PctText, fan1);
                     SetBar(_fan2Bar, _fan2PctText, fan2);
 
-                    float? effCpu = lhmCpu.HasValue ? lhmCpu : (cpuT > 0 ? (float?)cpuT : (float?)null);
                     SetTempBadge(_cpuTempVal, _cpuTempBadge, effCpu);
                     SetTempBadge(_gpuTempVal, _gpuTempBadge, lhmGpu);
                     SetTempBadge(_irTempVal, _irTempBadge, irT > 0 ? (float?)irT : (float?)null);
@@ -2591,8 +2727,10 @@ namespace LegionFanControl
                             string json = sr.ReadToEnd();
                             var mt = Regex.Match(json, "\"tag_name\"\\s*:\\s*\"([^\"]+)\"");
                             if (mt.Success) tag = mt.Groups[1].Value;
+                            // Yalnizca bu deponun surum sayfasina giden adrese izin ver
                             var mu = Regex.Match(json, "\"html_url\"\\s*:\\s*\"([^\"]+)\"");
-                            if (mu.Success) pageUrl = mu.Groups[1].Value;
+                            if (mu.Success && mu.Groups[1].Value.StartsWith(GitHubUrl + "/releases/", StringComparison.OrdinalIgnoreCase))
+                                pageUrl = mu.Groups[1].Value;
                         }
                         if (tag == null) failed = true;
                     }
@@ -2623,19 +2761,7 @@ namespace LegionFanControl
             {
                 _latestReleaseUrl = pageUrl;
                 _updateTag = tag;
-                if (_updateStatusText != null)
-                    _updateStatusText.Text = Lang.F("update.available", tag);
-                if (_updateDownloadTb != null && _updateDownloadRun != null)
-                {
-                    _updateDownloadRun.Text = Lang.F("update.download", tag);
-                    _updateDownloadTb.Visibility = Visibility.Visible;
-                }
-                if (_updateBanner != null && _updateBannerRun != null)
-                {
-                    _updateBannerRun.Text = Lang.F("update.available", tag);
-                    _updateBanner.Visibility = Visibility.Visible;
-                }
-                UpdateTrayLanguage();
+                ShowUpdateAvailable();
                 if (_tray != null)
                 {
                     try
@@ -2649,6 +2775,42 @@ namespace LegionFanControl
             else if (manual && _updateStatusText != null)
             {
                 _updateStatusText.Text = Lang.F("update.latest", CurrentVersion);
+            }
+        }
+
+        // Bulunan guncellemeyi arayuze yansitir (arayuz yeniden kuruldugunda da cagrilir).
+        private void ShowUpdateAvailable()
+        {
+            if (_updateTag == null) return;
+            if (_updateStatusText != null)
+                _updateStatusText.Text = Lang.F("update.available", _updateTag);
+            if (_updateDownloadTb != null && _updateDownloadRun != null)
+            {
+                _updateDownloadRun.Text = Lang.F("update.download", _updateTag);
+                _updateDownloadTb.Visibility = Visibility.Visible;
+            }
+            if (_updateBanner != null && _updateBannerRun != null && !_updateBannerDismissed)
+            {
+                _updateBannerRun.Text = Lang.F("update.available", _updateTag);
+                _updateBanner.Visibility = Visibility.Visible;
+            }
+            UpdateTrayLanguage();
+        }
+
+        // Uygulama yonetici olarak calistigi icin Process.Start(url) tarayiciyi da yonetici
+        // yetkisiyle acar. explorer.exe'ye verilen adres, kullanicinin normal (yukseltilmemis)
+        // kabuk oturumunda varsayilan tarayiciyla acilir.
+        private static void OpenUrl(string url)
+        {
+            if (string.IsNullOrEmpty(url) ||
+                !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) return;
+            try
+            {
+                Process.Start(new ProcessStartInfo("explorer.exe", "\"" + url + "\"") { UseShellExecute = false });
+            }
+            catch
+            {
+                try { Process.Start(url); } catch { }
             }
         }
 
@@ -2684,7 +2846,7 @@ namespace LegionFanControl
             {
                 if (_latestReleaseUrl != null)
                 {
-                    try { Process.Start(_latestReleaseUrl); } catch { }
+                    OpenUrl(_latestReleaseUrl);
                 }
             };
 
@@ -2746,6 +2908,14 @@ namespace LegionFanControl
         [STAThread]
         public static void Main(string[] args)
         {
+            // Kurulum sihirbazi "Windows ile baslat" gorevini bu modla kaydeder (arayuz acilmaz)
+            if (args != null && args.Length > 0 && args[0] == "--register-startup")
+            {
+                try { MainWindow.ApplyStartupTask(true); }
+                catch { Environment.ExitCode = 1; }
+                return;
+            }
+
             if (args != null && args.Length > 0 && args[0] == "--shot")
             {
                 string outDir = IOPath.GetDirectoryName(typeof(MainWindow).Assembly.Location) ?? AppDomain.CurrentDomain.BaseDirectory;
