@@ -52,7 +52,6 @@ namespace LegionFanControl
             { "err.nogamezone",     "LENOVO_GAMEZONE_DATA bulunamadı" },
             { "err.noresponse",     "{0} yanıt vermedi" },
             { "err.lhm",            "LHM açılamadı: {0}" },
-            { "err.schtasks",       "schtasks: {0}" },
 
             { "hero.desc.manual",   "Fanları maksimum devirde çalıştırarak anında yüksek soğutma" },
             { "hero.desc.auto",     "Otomatik mod devrede • Manuel kontrol kilitlendi" },
@@ -156,7 +155,6 @@ namespace LegionFanControl
             { "err.nogamezone",     "LENOVO_GAMEZONE_DATA not found" },
             { "err.noresponse",     "{0} did not respond" },
             { "err.lhm",            "Could not open LHM: {0}" },
-            { "err.schtasks",       "schtasks: {0}" },
 
             { "hero.desc.manual",   "Runs the fans at maximum speed for instant high cooling" },
             { "hero.desc.auto",     "Auto mode active • Manual control locked" },

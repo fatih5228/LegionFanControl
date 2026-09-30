@@ -24,9 +24,12 @@ using LibreHardwareMonitor.Hardware;
 // Surum yalnizca MainWindow.CurrentVersion'da tutulur; exe'nin dosya surumu ve
 // kurulum betigi (kurulum.iss) buradan okur.
 [assembly: System.Reflection.AssemblyTitle("Legion Y520 Fan Kontrol")]
+[assembly: System.Reflection.AssemblyDescription("Lenovo Legion Y520 fan control (Extreme Cooling) - https://github.com/fatih5228/LegionFanControl")]
+[assembly: System.Reflection.AssemblyCompany("fatih5228")]
 [assembly: System.Reflection.AssemblyProduct("Legion Y520 Fan Kontrol")]
-[assembly: System.Reflection.AssemblyVersion(LegionFanControl.MainWindow.CurrentVersion + ".0.0")]
-[assembly: System.Reflection.AssemblyFileVersion(LegionFanControl.MainWindow.CurrentVersion + ".0.0")]
+[assembly: System.Reflection.AssemblyCopyright("Copyright (c) 2026 Fatih (fatih5228) - MIT License")]
+[assembly: System.Reflection.AssemblyVersion(LegionFanControl.MainWindow.CurrentVersion + ".0")]
+[assembly: System.Reflection.AssemblyFileVersion(LegionFanControl.MainWindow.CurrentVersion + ".0")]
 [assembly: System.Reflection.AssemblyInformationalVersion(LegionFanControl.MainWindow.CurrentVersion)]
 
 namespace LegionFanControl
@@ -2049,39 +2052,75 @@ namespace LegionFanControl
         }
 
         // ---------------- Baslangicta Calistirma (Gorev Zamanlayici) ----------------
+        // Gorev, Gorev Zamanlayici'nin COM arayuzuyle (Schedule.Service) yonetilir; harici surec baslatilmaz.
         private const string StartupTaskName = "LegionFanControl";
 
-        // Ciktiyi dondurur; basarisizsa schtasks'in kendi hata mesajiyla istisna firlatir.
-        private static string RunSchtasks(string args)
+        private static object Com(object target, string member, System.Reflection.BindingFlags kind, params object[] args)
         {
-            var p = Process.Start(new ProcessStartInfo
-            {
-                FileName = "schtasks.exe",
-                Arguments = args,
-                CreateNoWindow = true,
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true
-            });
-            var errTask = p.StandardError.ReadToEndAsync();
-            string output = p.StandardOutput.ReadToEnd();
-            p.WaitForExit();
-            string err = errTask.Result.Trim();
-            if (p.ExitCode != 0)
-                throw new Exception(Lang.F("err.schtasks", err != "" ? err : p.ExitCode.ToString()));
-            return output;
+            try { return target.GetType().InvokeMember(member, kind, null, target, args); }
+            catch (System.Reflection.TargetInvocationException ex) { throw ex.InnerException ?? ex; }
+        }
+
+        private static object TaskRootFolder()
+        {
+            var svc = Activator.CreateInstance(Type.GetTypeFromProgID("Schedule.Service", true));
+            Com(svc, "Connect", System.Reflection.BindingFlags.InvokeMethod);
+            return Com(svc, "GetFolder", System.Reflection.BindingFlags.InvokeMethod, "\\");
         }
 
         // Gorev yoksa null, varsa gorevin XML tanimini dondurur.
-        private static string QueryStartupTaskXml()
+        internal static string GetTaskXml(string name)
         {
-            try { return RunSchtasks("/Query /TN \"" + StartupTaskName + "\" /XML"); }
+            try
+            {
+                var task = Com(TaskRootFolder(), "GetTask", System.Reflection.BindingFlags.InvokeMethod, name);
+                return (string)Com(task, "Xml", System.Reflection.BindingFlags.GetProperty);
+            }
             catch { return null; }
+        }
+
+        internal static void RegisterTask(string name, string xml)
+        {
+            const int CreateOrUpdate = 6, LogonInteractiveToken = 3;
+            Com(TaskRootFolder(), "RegisterTask", System.Reflection.BindingFlags.InvokeMethod,
+                name, xml, CreateOrUpdate, null, null, LogonInteractiveToken, null);
+        }
+
+        internal static void DeleteTask(string name)
+        {
+            if (GetTaskXml(name) == null) return;
+            Com(TaskRootFolder(), "DeleteTask", System.Reflection.BindingFlags.InvokeMethod, name, 0);
+        }
+
+        // Oturum acilisinda --tray ile, yonetici yetkisiyle calisir. Varsayilanlar gorevi pildeyken
+        // baslatmaz, pile gecince ve 72 saat sonra durdurur; bu ayarlar kapatilir.
+        internal static string StartupTaskXml(string exe)
+        {
+            string user = System.Security.Principal.WindowsIdentity.GetCurrent().User.Value;
+            return
+                "<?xml version=\"1.0\" encoding=\"UTF-16\"?>\r\n" +
+                "<Task version=\"1.2\" xmlns=\"http://schemas.microsoft.com/windows/2004/02/mit/task\">\r\n" +
+                "  <RegistrationInfo><Description>Legion Y520 Fan Kontrol</Description></RegistrationInfo>\r\n" +
+                "  <Triggers><LogonTrigger><Enabled>true</Enabled><UserId>" + user + "</UserId></LogonTrigger></Triggers>\r\n" +
+                "  <Principals><Principal id=\"Author\"><UserId>" + user + "</UserId>" +
+                "<LogonType>InteractiveToken</LogonType><RunLevel>HighestAvailable</RunLevel></Principal></Principals>\r\n" +
+                "  <Settings>\r\n" +
+                "    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>\r\n" +
+                "    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>\r\n" +
+                "    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>\r\n" +
+                "    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>\r\n" +
+                "  </Settings>\r\n" +
+                "  <Actions Context=\"Author\"><Exec>" +
+                "<Command>" + System.Security.SecurityElement.Escape(exe) + "</Command>" +
+                "<Arguments>--tray</Arguments>" +
+                "<WorkingDirectory>" + System.Security.SecurityElement.Escape(IOPath.GetDirectoryName(exe)) + "</WorkingDirectory>" +
+                "</Exec></Actions>\r\n" +
+                "</Task>\r\n";
         }
 
         private static bool IsStartupEnabled()
         {
-            return QueryStartupTaskXml() != null;
+            return GetTaskXml(StartupTaskName) != null;
         }
 
         private void RefreshStartupState()
@@ -2126,7 +2165,7 @@ namespace LegionFanControl
             {
                 try
                 {
-                    string xml = QueryStartupTaskXml();
+                    string xml = GetTaskXml(StartupTaskName);
                     if (xml == null) return;
                     string exe = typeof(MainWindow).Assembly.Location;
                     bool upToDate =
@@ -2140,48 +2179,11 @@ namespace LegionFanControl
             });
         }
 
-        // Gorev XML ile kaydedilir: schtasks /SC ONLOGON varsayilanlari gorevi pildeyken
-        // baslatmaz, pile gecince ve 72 saat sonra durdurur. Kurulum da bunu --register-startup ile cagirir.
+        // Kurulum da bunu --register-startup ile cagirir.
         internal static void ApplyStartupTask(bool on)
         {
-            if (!on)
-            {
-                RunSchtasks("/Delete /TN \"" + StartupTaskName + "\" /F");
-                return;
-            }
-
-            string exe = typeof(MainWindow).Assembly.Location;
-            string user = System.Security.Principal.WindowsIdentity.GetCurrent().User.Value;
-            string xml =
-                "<?xml version=\"1.0\" encoding=\"UTF-16\"?>\r\n" +
-                "<Task version=\"1.2\" xmlns=\"http://schemas.microsoft.com/windows/2004/02/mit/task\">\r\n" +
-                "  <RegistrationInfo><Description>Legion Y520 Fan Kontrol</Description></RegistrationInfo>\r\n" +
-                "  <Triggers><LogonTrigger><Enabled>true</Enabled><UserId>" + user + "</UserId></LogonTrigger></Triggers>\r\n" +
-                "  <Principals><Principal id=\"Author\"><UserId>" + user + "</UserId>" +
-                "<LogonType>InteractiveToken</LogonType><RunLevel>HighestAvailable</RunLevel></Principal></Principals>\r\n" +
-                "  <Settings>\r\n" +
-                "    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>\r\n" +
-                "    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>\r\n" +
-                "    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>\r\n" +
-                "    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>\r\n" +
-                "  </Settings>\r\n" +
-                "  <Actions Context=\"Author\"><Exec>" +
-                "<Command>" + System.Security.SecurityElement.Escape(exe) + "</Command>" +
-                "<Arguments>--tray</Arguments>" +
-                "<WorkingDirectory>" + System.Security.SecurityElement.Escape(IOPath.GetDirectoryName(exe)) + "</WorkingDirectory>" +
-                "</Exec></Actions>\r\n" +
-                "</Task>\r\n";
-
-            string tmp = IOPath.Combine(IOPath.GetTempPath(), "LegionFanControl_task_" + Guid.NewGuid().ToString("N") + ".xml");
-            try
-            {
-                File.WriteAllText(tmp, xml, System.Text.Encoding.Unicode);
-                RunSchtasks("/Create /TN \"" + StartupTaskName + "\" /XML \"" + tmp + "\" /F");
-            }
-            finally
-            {
-                try { File.Delete(tmp); } catch { }
-            }
+            if (on) RegisterTask(StartupTaskName, StartupTaskXml(typeof(MainWindow).Assembly.Location));
+            else DeleteTask(StartupTaskName);
         }
 
         // ---------------- Dil Secimi ----------------
@@ -2235,7 +2237,7 @@ namespace LegionFanControl
 
         // ---------------- 4. Sayfa: HAKKINDA ----------------
         private const string GitHubUrl = "https://github.com/fatih5228/LegionFanControl";
-        public const string CurrentVersion = "2.7";
+        public const string CurrentVersion = "2.7.1";
         private const string GitHubLatestReleasePage = GitHubUrl + "/releases/latest";
         private const string GitHubApiLatestRelease = "https://api.github.com/repos/fatih5228/LegionFanControl/releases/latest";
 
