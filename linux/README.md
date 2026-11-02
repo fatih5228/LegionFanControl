@@ -44,6 +44,22 @@ legion-fan-control.service (root)  ── otomatik mod burada çalışır
 
 Numaralar Y520-15IKBN (BIOS 4KCN45WW) DSDT'sinden çıkarıldı. Başka modellerde farklı olabilir.
 
+### Desteklenen model / Supported model
+
+Servis yalnızca **Lenovo Y520-15IKBN** üzerinde (DMI `product_version` ya da anakart `Provence-5R1`)
+donanıma erişir. Başka bir modelde aynı metot numarası farklı bir EC komutu olabileceğinden, diğer
+modellerde `/proc/acpi/call`'a hiç yazılmaz; arayüz "Desteklenmeyen model" gösterir.
+
+The service only touches the hardware on the **Lenovo Y520-15IKBN**. On other models the same method
+number may be a different EC command, so `/proc/acpi/call` is never written and the UI shows
+"Unsupported model".
+
+Kendi sorumluluğunuzda başka bir modelde denemek için (önce DSDT'nizi inceleyin!):
+
+```bash
+sudo systemctl edit legion-fan-control    # [Service] altına: Environment=LEGION_FAN_FORCE=1
+```
+
 ## Kurulum / Installation (Arch, CachyOS, Manjaro…)
 
 ```bash

@@ -46,6 +46,7 @@ TR = {
     "status.error":       "Hata: {0}",
     "status.noservice":   "Servise ulaşılamıyor — legion-fan-control.service çalışıyor mu?",
     "status.denied":      "İzin yok — kullanıcınız wheel grubunda olmalı",
+    "status.unsupported": "Desteklenmeyen model: {0} — fan kontrolü yalnızca Lenovo Y520-15IKBN'de çalışır",
 
     "hero.desc.manual":   "Fanları maksimum devirde çalıştırarak anında yüksek soğutma",
     "hero.desc.auto":     "Otomatik mod devrede • Manuel kontrol kilitlendi",
@@ -87,6 +88,7 @@ TR = {
     "hw.bios":            "BIOS SÜRÜMÜ & ACPI",
     "hw.gamezone.ok":     "GameZone (\\_SB.GZFD.WMAA) erişilebilir • fan kontrolü destekleniyor",
     "hw.gamezone.fail":   "GameZone erişilemiyor: {0}",
+    "hw.gamezone.unsupported": "Desteklenmeyen model ({0}) • donanıma erişilmedi",
     "hw.error":           "Donanım bilgisi alınamadı: {0}",
 
     "sys.title":          "SİSTEM VE OYUN ARAÇLARI",
@@ -147,6 +149,7 @@ EN = {
     "status.error":       "Error: {0}",
     "status.noservice":   "Service unreachable — is legion-fan-control.service running?",
     "status.denied":      "Permission denied — your user must be in the wheel group",
+    "status.unsupported": "Unsupported model: {0} — fan control only works on the Lenovo Y520-15IKBN",
 
     "hero.desc.manual":   "Runs the fans at maximum speed for instant high cooling",
     "hero.desc.auto":     "Auto mode active • Manual control locked",
@@ -188,6 +191,7 @@ EN = {
     "hw.bios":            "BIOS VERSION & ACPI",
     "hw.gamezone.ok":     "GameZone (\\_SB.GZFD.WMAA) available • fan control supported",
     "hw.gamezone.fail":   "GameZone unavailable: {0}",
+    "hw.gamezone.unsupported": "Unsupported model ({0}) • hardware not accessed",
     "hw.error":           "Failed to get hardware info: {0}",
 
     "sys.title":          "SYSTEM AND GAMING TOOLS",

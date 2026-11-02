@@ -18,7 +18,7 @@ from gi.repository import GLib
 
 from . import (BUS_NAME, HYSTERESIS, INTERFACE, OBJECT_PATH,
                THRESHOLD_DEFAULT, THRESHOLD_MAX, THRESHOLD_MIN, sensors)
-from .gamezone import GameZone, GameZoneError
+from .gamezone import GameZone, GameZoneError, UnsupportedModel
 
 STATE_DIR = os.environ.get("STATE_DIRECTORY", "/var/lib/legion-fan-control")
 STATE_FILE = os.path.join(STATE_DIR, "state.ini")
@@ -32,6 +32,7 @@ class FanService(dbus.service.Object):
         super().__init__(bus, OBJECT_PATH)
         self._gz = None
         self._hw_error = ""
+        self._unsupported = ""  # desteklenmeyen modelin adi
         self._max_rpm = 4000
         self._auto_mode = False
         self._threshold = THRESHOLD_DEFAULT
@@ -78,6 +79,9 @@ class FanService(dbus.service.Object):
                 if 500 <= m <= 10000:
                     self._max_rpm = m
                 self._hw_error = ""
+                self._unsupported = ""
+            except UnsupportedModel as ex:
+                self._hw_error, self._unsupported = str(ex), ex.model
             except (GameZoneError, OSError) as ex:
                 self._hw_error = str(ex)
         return self._gz
@@ -92,6 +96,7 @@ class FanService(dbus.service.Object):
     def _poll(self):
         st = {"connected": False, "error": "", "max_rpm": self._max_rpm}
         gz = self._hw()
+        st["unsupported"] = self._unsupported
         cpu, cpu_src = sensors.cpu_temp()
         st["cpu_temp"], st["cpu_src"] = (cpu if cpu is not None else -1.0), cpu_src
         try:
@@ -148,6 +153,7 @@ class FanService(dbus.service.Object):
             self._hwinfo = sensors.hardware_info()
         info = dict(self._hwinfo)
         info["gamezone.error"] = "" if self._hw() else self._hw_error
+        info["gamezone.unsupported"] = self._unsupported
         return info
 
     @dbus.service.method(INTERFACE, in_signature="b", out_signature="b")
