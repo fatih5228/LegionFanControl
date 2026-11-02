@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=Legion Y520 Fan Control
+Name[tr]=Legion Y520 Fan Kontrol
+Icon=legion-fan-control
+Actions=ToggleExtremeCooling
+StartupNotify=false
+X-KDE-GlobalShortcutType=Service
+
+[Desktop Action ToggleExtremeCooling]
+Name=Toggle Extreme Cooling
+Name[tr]=Extreme Cooling aç/kapat
+Exec=dbus-send --system --type=method_call --dest=io.github.fatih5228.LegionFanControl /io/github/fatih5228/LegionFanControl io.github.fatih5228.LegionFanControl.ToggleExtremeCooling
+X-KDE-Shortcuts=Ctrl+Alt+F

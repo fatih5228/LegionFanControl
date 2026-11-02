@@ -13,3 +13,9 @@ libs/
 
 # Gecici test ciktilari
 shot_*.png
+
+# Linux paket ciktilari (makepkg)
+linux/pkg/
+linux/src/
+linux/*.pkg.tar.*
+__pycache__/
