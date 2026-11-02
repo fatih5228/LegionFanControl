@@ -62,6 +62,22 @@ sudo systemctl edit legion-fan-control    # [Service] altına: Environment=LEGIO
 
 ## Kurulum / Installation (Arch, CachyOS, Manjaro…)
 
+### AUR (önerilen / recommended)
+
+[![AUR](https://img.shields.io/aur/version/legion-y520-fan-control-git?label=AUR)](https://aur.archlinux.org/packages/legion-y520-fan-control-git)
+
+```bash
+paru -S legion-y520-fan-control-git      # ya da / or: yay -S legion-y520-fan-control-git
+sudo systemctl enable --now legion-fan-control.service
+```
+
+Pamac kullanıyorsanız: *Paket Ekle/Kaldır → AUR* sekmesinde `legion-y520-fan-control-git` arayın.
+Bu bir `-git` paketidir: GitHub'daki her güncelleme bir sonraki sistem güncellemesinde gelir.
+
+This is a `-git` package: every change on GitHub arrives with your next system upgrade.
+
+### Kaynaktan / From source
+
 ```bash
 git clone https://github.com/fatih5228/LegionFanControl.git
 cd LegionFanControl/linux

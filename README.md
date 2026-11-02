@@ -27,10 +27,10 @@ Extreme Cooling, temperature-threshold auto fan mode, hardware monitoring and ga
 ## 🐧 Linux
 
 Aynı arayüz ve özellikler Linux'ta da var (Python + Qt, KDE Plasma'da test edildi).
-Kurulum ve ayrıntılar: [linux/README.md](linux/README.md)
+Kurulum: `paru -S legion-y520-fan-control-git` ([AUR](https://aur.archlinux.org/packages/legion-y520-fan-control-git)) • Ayrıntılar: [linux/README.md](linux/README.md)
 
 The same UI and features are available on Linux (Python + Qt, tested on KDE Plasma).
-Installation and details: [linux/README.md](linux/README.md)
+Install: `paru -S legion-y520-fan-control-git` ([AUR](https://aur.archlinux.org/packages/legion-y520-fan-control-git)) • Details: [linux/README.md](linux/README.md)
 
 ## Kurulum / Installation
 
