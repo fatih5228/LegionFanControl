@@ -24,6 +24,14 @@ Extreme Cooling, temperature-threshold auto fan mode, hardware monitoring and ga
 |---|---|---|
 | ![Donanım](window_shot1.png) | ![Sistem](window_shot2.png) | ![Hakkında](window_shot3.png) |
 
+## 🐧 Linux
+
+Aynı arayüz ve özellikler Linux'ta da var (Python + Qt, KDE Plasma'da test edildi).
+Kurulum ve ayrıntılar: [linux/README.md](linux/README.md)
+
+The same UI and features are available on Linux (Python + Qt, tested on KDE Plasma).
+Installation and details: [linux/README.md](linux/README.md)
+
 ## Kurulum / Installation
 
 [Releases](https://github.com/fatih5228/LegionFanControl/releases) sayfasından:

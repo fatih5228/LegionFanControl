@@ -1,0 +1,3 @@
+#!/bin/sh
+# Legion Y520 Fan Kontrol arayuzu
+exec /usr/bin/python3 -I -c 'import sys; sys.path.insert(0, "/usr/lib/legion-fan-control"); from legionfan.gui.app import main; sys.exit(main())' "$@"

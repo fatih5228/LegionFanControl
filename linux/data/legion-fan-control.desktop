@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=Legion Y520 Fan Control
+Name[tr]=Legion Y520 Fan Kontrol
+GenericName=Fan Control
+GenericName[tr]=Fan Kontrolü
+Comment=Extreme Cooling, automatic fan mode and gaming tools for Lenovo Legion Y520
+Comment[tr]=Lenovo Legion Y520 için Extreme Cooling, otomatik fan modu ve oyun araçları
+Exec=legion-fan-control
+Icon=legion-fan-control
+Terminal=false
+Categories=System;Monitor;
+Keywords=fan;cooling;legion;lenovo;soğutma;
+StartupWMClass=legion-fan-control

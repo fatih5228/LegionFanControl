@@ -1,0 +1,25 @@
+[Unit]
+Description=Legion Y520 Fan Control servisi (Extreme Cooling, otomatik fan modu)
+Documentation=https://github.com/fatih5228/LegionFanControl
+
+[Service]
+Type=dbus
+BusName=io.github.fatih5228.LegionFanControl
+ExecStartPre=-/usr/bin/modprobe acpi_call
+# -I: yalitilmis mod (PYTHONPATH ve calisma dizini yok sayilir), yol acikca verilir
+ExecStart=/usr/bin/python3 -I -c "import sys; sys.path.insert(0, '/usr/lib/legion-fan-control'); from legionfan.daemon import main; main()"
+StateDirectory=legion-fan-control
+Restart=on-failure
+RestartSec=3
+
+# Servis yalnizca /proc/acpi/call, sysfs ve dmidecode'a erisir
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+RestrictAddressFamilies=AF_UNIX
+LockPersonality=yes
+RestrictRealtime=yes
+
+[Install]
+WantedBy=multi-user.target
