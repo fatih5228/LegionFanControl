@@ -7,7 +7,7 @@ pkgdesc="Extreme Cooling, automatic fan mode and gaming tools for Lenovo Legion 
 arch=('any')
 url="https://github.com/fatih5228/LegionFanControl"
 license=('MIT')
-depends=('python' 'pyside6' 'python-dbus' 'python-gobject' 'acpi_call' 'dmidecode' 'pciutils')
+depends=('python' 'pyside6' 'python-dbus' 'python-gobject' 'glib2' 'acpi_call' 'dmidecode' 'pciutils')
 makedepends=('git')
 optdepends=('nvidia-utils: GPU temperature (nvidia-smi)')
 provides=('legion-fan-control')
@@ -26,4 +26,5 @@ pkgver() {
 package() {
   cd "$_pkgname/linux"
   make DESTDIR="$pkgdir" install
+  install -Dm644 ../LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }

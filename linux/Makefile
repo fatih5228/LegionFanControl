@@ -1,6 +1,7 @@
 # Legion Y520 Fan Kontrol - kurulum (PKGBUILD'ler ve diger paketler bunu kullanir)
 #   make DESTDIR=/paket/koku install
 # Servis dosyasi /usr/lib/legion-fan-control yolunu kullandigi icin onek sabittir.
+# Lisans dosyasini paket adina gore paketleyici kurar.
 
 LIBDIR = /usr/lib/legion-fan-control
 
@@ -19,4 +20,3 @@ install:
 	install -Dm644 data/legion-fan-control-shortcuts.desktop \
 		$(DESTDIR)/usr/share/kglobalaccel/legion-fan-control-shortcuts.desktop
 	install -Dm644 legionfan/gui/icon-on.png $(DESTDIR)/usr/share/pixmaps/legion-fan-control.png
-	install -Dm644 ../LICENSE $(DESTDIR)/usr/share/licenses/legion-fan-control/LICENSE
