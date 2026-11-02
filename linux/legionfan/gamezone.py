@@ -7,6 +7,7 @@ ayni metodu acpi_call cekirdek modulu ile dogrudan cagiriyoruz.
 Metot numaralari Y520-15IKBN (BIOS 4KCN45WW) DSDT'sinden cikarildi.
 """
 
+import os
 import threading
 
 ACPI_CALL = "/proc/acpi/call"
@@ -24,12 +25,44 @@ M_SET_TOUCHPAD = 0x19   # EC komutu 0x59: 0x7B / 0x7A  -> GDST deger 4
 M_GET_TOUCHPAD = 0x1A
 
 
+# Metot numaralari modele/BIOS'a ozgudur: baska bir modelde ayni numara farkli
+# bir EC komutu olabilir. Bu yuzden yalnizca dogrulanan modelde calisilir.
+SUPPORTED_MODELS = ("Y520-15IKBN",)
+SUPPORTED_BOARDS = ("Provence-5R1",)
+FORCE_ENV = "LEGION_FAN_FORCE"
+
+
 class GameZoneError(Exception):
     pass
 
 
+class UnsupportedModel(GameZoneError):
+    def __init__(self, model):
+        super().__init__(f"unsupported model: {model}")
+        self.model = model
+
+
+def _dmi(name):
+    try:
+        with open(f"/sys/class/dmi/id/{name}") as f:
+            return f.read().strip()
+    except OSError:
+        return ""
+
+
+def check_model():
+    """Desteklenmeyen modelde UnsupportedModel firlatir (LEGION_FAN_FORCE=1 ile atlanir)."""
+    if os.environ.get(FORCE_ENV) == "1":
+        return
+    version, board = _dmi("product_version"), _dmi("board_name")
+    if any(m in version for m in SUPPORTED_MODELS) or board in SUPPORTED_BOARDS:
+        return
+    raise UnsupportedModel(version or _dmi("product_name") or "?")
+
+
 class GameZone:
     def __init__(self, path=ACPI_CALL):
+        check_model()
         self._path = path
         self._lock = threading.Lock()
         # Modul yuklu degilse dosya yoktur; erken ve anlasilir hata ver

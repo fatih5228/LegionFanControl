@@ -1,8 +1,9 @@
 # Maintainer: Fatih (fatih5228)
-# Yerel derleme: bu klasorde `makepkg -si`
+# Yerel derleme (calisma kopyasindan): bu klasorde `makepkg -si`
+# AUR paketi: aur/PKGBUILD
 pkgname=legion-fan-control
 pkgver=2.7.1
-pkgrel=3
+pkgrel=5
 pkgdesc="Extreme Cooling, automatic fan mode and gaming tools for Lenovo Legion Y520-15IKBN"
 arch=('any')
 url="https://github.com/fatih5228/LegionFanControl"
@@ -13,21 +14,5 @@ install=legion-fan-control.install
 
 package() {
   cd "$startdir"
-  local lib="$pkgdir/usr/lib/legion-fan-control"
-
-  install -d "$lib/legionfan/gui"
-  install -m644 legionfan/*.py "$lib/legionfan/"
-  install -m644 legionfan/gui/*.py legionfan/gui/*.png "$lib/legionfan/gui/"
-  python -m compileall -q -d /usr/lib/legion-fan-control "$lib"
-
-  install -Dm755 legion-fan-control "$pkgdir/usr/bin/legion-fan-control"
-  install -Dm644 data/legion-fan-control.service "$pkgdir/usr/lib/systemd/system/legion-fan-control.service"
-  install -Dm644 data/io.github.fatih5228.LegionFanControl.conf \
-    "$pkgdir/usr/share/dbus-1/system.d/io.github.fatih5228.LegionFanControl.conf"
-  install -Dm644 data/acpi_call.conf "$pkgdir/usr/lib/modules-load.d/legion-fan-control.conf"
-  install -Dm644 data/legion-fan-control.desktop "$pkgdir/usr/share/applications/legion-fan-control.desktop"
-  install -Dm644 data/legion-fan-control-shortcuts.desktop \
-    "$pkgdir/usr/share/kglobalaccel/legion-fan-control-shortcuts.desktop"
-  install -Dm644 legionfan/gui/icon-on.png "$pkgdir/usr/share/pixmaps/legion-fan-control.png"
-  install -Dm644 ../LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  make DESTDIR="$pkgdir" install
 }

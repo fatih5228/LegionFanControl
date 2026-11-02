@@ -533,10 +533,13 @@ class MainWindow(QWidget):
         m = re.match(r"(\d{2})/(\d{2})/(\d{4})", date)
         if m:
             date = f"{m.group(2)}.{m.group(1)}.{m.group(3)}"
-        gz_err = info.get("gamezone.error", "")
+        gz_err, unsupported = info.get("gamezone.error", ""), info.get("gamezone.unsupported", "")
+        if unsupported:
+            gz_text = F("hw.gamezone.unsupported", unsupported)
+        else:
+            gz_text = F("hw.gamezone.fail", gz_err) if gz_err else T("hw.gamezone.ok")
         self._hw_box.addWidget(self._info_card(
-            "gear", T("hw.bios"), " • ".join(filter(None, [info.get("bios.version"), date])),
-            F("hw.gamezone.fail", gz_err) if gz_err else T("hw.gamezone.ok")))
+            "gear", T("hw.bios"), " • ".join(filter(None, [info.get("bios.version"), date])), gz_text))
 
     def _load_hardware_info(self):
         def done(info, err):
@@ -739,7 +742,10 @@ class MainWindow(QWidget):
         gpu = gpu if gpu is not None and gpu > 0 else None
 
         if not st.get("connected"):
-            msg = st.get("service_error") or F("status.connerror", st.get("error", "?"))
+            if st.get("unsupported"):
+                msg = F("status.unsupported", st["unsupported"])
+            else:
+                msg = st.get("service_error") or F("status.connerror", st.get("error", "?"))
             self._set_status(msg, True)
             for rpm, pct, bar in self._fan_widgets:
                 rpm.setText("— RPM")
